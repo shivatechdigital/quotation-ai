@@ -1,0 +1,1125 @@
+prashant@naukarivm:~$ ls
+backend      crm-backups     n8n-restore   package-lock.json  quotation-ai             shivatech-crm
+copilot-api  job-auto-apply  node_modules  package.json       setup-job-auto-apply.sh
+prashant@naukarivm:~$ cd quotation-ai/
+prashant@naukarivm:~/quotation-ai$ ls
+README.md  data  docker-compose.yml  postgres  scripts  templates
+prashant@naukarivm:~/quotation-ai$ git --version
+docker --version
+docker compose version
+git version 2.43.0
+Docker version 29.1.3, build 29.1.3-0ubuntu3~24.04.2
+Docker Compose version v5.5.1
+prashant@naukarivm:~/quotation-ai$ cd ~/quotation-ai
+
+echo "===== docker-compose.yml ====="
+cat docker-compose.yml
+
+echo "===== .env ====="
+cat .env 2>/dev/null || echo ".env does not exist"
+
+echo "===== .gitignore ====="
+cat .gitignore 2>/dev/null || echo ".gitignore does not exist"
+===== docker-compose.yml =====
+===== .env =====
+===== .gitignore =====
+prashant@naukarivm:~/quotation-ai$ cd ~/quotation-ai
+
+
+
+cat > .env <<'EOF'
+
+POSTGRES_DB=quotation_db
+
+POSTGRES_USER=quotation_user
+
+POSTGRES_PASSWORD=Password1234
+
+
+
+POSTGRES_PORT=5435
+
+GOTENBERG_PORT=3000
+
+EOF
+prashant@naukarivm:~/quotation-ai$ nano .env
+prashant@naukarivm:~/quotation-ai$ cat > .gitignore <<'EOF'
+.env
+data/
+*.log
+.DS_Store
+EOF
+prashant@naukarivm:~/quotation-ai$ nano .gitignore
+prashant@naukarivm:~/quotation-ai$ cat > docker-compose.yml <<'EOF'
+services:
+
+  quotation-postgres:
+    image: postgres:17-alpine
+    container_name: quotation-postgres
+    restart: unless-stopped
+
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+
+    ports:
+      - "${POSTGRES_PORT}:5432"
+
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+
+  quotation-gotenberg:
+    image: gotenberg/gotenberg:8
+    container_name: quotation-gotenberg
+EOF   - "--api-timeout=120s"000"
+prashant@naukarivm:~/quotation-ai$ docker compose config
+name: quotation-ai
+services:
+  quotation-gotenberg:
+    command:
+      - gotenberg
+      - --api-timeout=120s
+    container_name: quotation-gotenberg
+    image: gotenberg/gotenberg:8
+    networks:
+      default: null
+    ports:
+      - mode: ingress
+        target: 3000
+        published: "3000"
+        protocol: tcp
+    restart: unless-stopped
+  quotation-postgres:
+    container_name: quotation-postgres
+    environment:
+      POSTGRES_DB: quotation_db
+      POSTGRES_PASSWORD: Password1234
+      POSTGRES_USER: quotation_user
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U quotation_user -d quotation_db
+      timeout: 5s
+      interval: 10s
+      retries: 5
+    image: postgres:17-alpine
+    networks:
+      default: null
+    ports:
+      - mode: ingress
+        target: 5432
+        published: "5435"
+        protocol: tcp
+    restart: unless-stopped
+    volumes:
+      - type: bind
+        source: /home/prashant/quotation-ai/data/postgres
+        target: /var/lib/postgresql/data
+        bind: {}
+networks:
+  default:
+    name: quotation-ai_default
+prashant@naukarivm:~/quotation-ai$ docker compose pull
+[+] pull 30/30
+ ✔ Image postgres:17-alpine    Pulled                                                                              12.5s
+ ✔ Image gotenberg/gotenberg:8 Pulled                                                                              23.6s
+prashant@naukarivm:~/quotation-ai$ docker compose up -d
+[+] up 2/3
+ ✔ Network quotation-ai_default  Created                                                                            0.1s
+ ✔ Container quotation-postgres  Started                                                                            1.4s
+ ⠧ Container quotation-gotenberg Starting                                                                           1.7s
+Error response from daemon: failed to set up container networking: driver failed programming external connectivity on endpoint quotation-gotenberg (c20e9b088a8e3a5db0e25d7ab4b79baa5c7ec17cf06fdbe214e0bd642557feff): failed to bind host port 0.0.0.0:3000/tcp: address already in use
+prashant@naukarivm:~/quotation-ai$ nano .gitignore
+                                   nano .gitignore
+                                   nano .env
+prashant@naukarivm:~/quotation-ai$ docker compose up -d quotation-gotenbergr compose up -d quotation-gotenberg
+[+] up 1/1
+ ✔ Container quotation-gotenberg Started                                                                            0.7s
+prashant@naukarivm:~/quotation-ai$ docker compose ps
+NAME                  IMAGE                   COMMAND                  SERVICE               CREATED              STATUS                        PORTS
+quotation-gotenberg   gotenberg/gotenberg:8   "/usr/bin/tini -- go…"   quotation-gotenberg   6 seconds ago        Up 5 seconds                  0.0.0.0:3100->3000/tcp, [::]:3100->3000/tcp
+quotation-postgres    postgres:17-alpine      "docker-entrypoint.s…"   quotation-postgres    About a minute ago   Up About a minute (healthy)   0.0.0.0:5435->5432/tcp, [::]:5435->5432/tcp
+prashant@naukarivm:~/quotation-ai$ docker compose ps
+NAME                  IMAGE                   COMMAND                  SERVICE               CREATED              STATUS                        PORTS
+quotation-gotenberg   gotenberg/gotenberg:8   "/usr/bin/tini -- go…"   quotation-gotenberg   22 seconds ago       Up 22 seconds                 0.0.0.0:3100->3000/tcp, [::]:3100->3000/tcp
+quotation-postgres    postgres:17-alpine      "docker-entrypoint.s…"   quotation-postgres    About a minute ago   Up About a minute (healthy)   0.0.0.0:5435->5432/tcp, [::]:5435->5432/tcp
+prashant@naukarivm:~/quotation-ai$ curl http://localhost:3100/health
+{"status":"up","details":{"chromium":{"status":"up","timestamp":"2026-09-17T06:52:24.607069577Z"},"libreoffice":{"status":"up","timestamp":"2026-09-17T06:52:24.607069226Z"}}}prashant@naukarivm:~/quotation-ai$ docker exec -it quotation-postgres \                              docker exec -it quotation-postgres \
+psql -U quotation_user -d quotation_db
+psql (17.11)
+Type "help" for help.
+
+quotation_db=# \dt
+Did not find any relations.
+quotation_db=# exit
+prashant@naukarivm:~/quotation-ai$ docker exec -it quotation-postgres \
+psql -U quotation_user -d quotation_db -c "\conninfo"
+You are connected to database "quotation_db" as user "quotation_user" via socket in "/var/run/postgresql" at port "5432".
+prashant@naukarivm:~/quotation-ai$ cd ~/quotation-ai
+mkdir -p postgres/init
+nano postgres/init/001_schema.sql
+prashant@naukarivm:~/quotation-ai$ docker exec -i quotation-postgres \
+psql -U quotation_user -d quotation_db \
+< postgres/init/001_schema.sql
+CREATE EXTENSION
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE FUNCTION
+CREATE TRIGGER
+CREATE TRIGGER
+CREATE TRIGGER
+prashant@naukarivm:~/quotation-ai$ docker exec -it quotation-postgres \
+psql -U quotation_user -d quotation_db
+psql (17.11)
+Type "help" for help.
+
+quotation_db=# \dt
+                  List of relations
+ Schema |        Name        | Type  |     Owner
+--------+--------------------+-------+----------------
+ public | customers          | table | quotation_user
+ public | pricing_master     | table | quotation_user
+ public | quotation_actions  | table | quotation_user
+ public | quotation_files    | table | quotation_user
+ public | quotation_items    | table | quotation_user
+ public | quotation_versions | table | quotation_user
+ public | quotations         | table | quotation_user
+(7 rows)
+
+quotation_db=# \d quotations
+                                    Table "public.quotations"
+      Column      |           Type           | Collation | Nullable |          Default
+------------------+--------------------------+-----------+----------+----------------------------
+ id               | uuid                     |           | not null | gen_random_uuid()
+ quotation_number | character varying(50)    |           | not null |
+ customer_id      | uuid                     |           | not null |
+ budget           | numeric(12,2)            |           |          |
+ subtotal         | numeric(12,2)            |           | not null | 0
+ discount         | numeric(12,2)            |           | not null | 0
+ gst_percentage   | numeric(5,2)             |           | not null | 18
+ gst_amount       | numeric(12,2)            |           | not null | 0
+ grand_total      | numeric(12,2)            |           | not null | 0
+ timeline         | character varying(100)   |           |          |
+ validity_days    | integer                  |           |          | 15
+ status           | character varying(30)    |           | not null | 'DRAFT'::character varying
+ current_version  | integer                  |           | not null | 1
+ created_at       | timestamp with time zone |           | not null | now()
+ updated_at       | timestamp with time zone |           | not null | now()
+Indexes:
+    "quotations_pkey" PRIMARY KEY, btree (id)
+    "idx_quotations_customer" btree (customer_id)
+    "idx_quotations_status" btree (status)
+    "quotations_quotation_number_key" UNIQUE CONSTRAINT, btree (quotation_number)
+Check constraints:
+    "quotations_status_check" CHECK (status::text = ANY (ARRAY['DRAFT'::character varying, 'GENERATING'::character varying, 'PENDING_APPROVAL'::character varying, 'EDITING'::character varying, 'APPROVED'::character varying, 'SENT'::character varying, 'REJECTED'::character varying, 'TRASH'::character varying]::text[]))
+Foreign-key constraints:
+    "quotations_customer_id_fkey" FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE RESTRICT
+Referenced by:
+    TABLE "quotation_actions" CONSTRAINT "quotation_actions_quotation_id_fkey" FOREIGN KEY (quotation_id) REFERENCES quotations(id) ON DELETE CASCADE
+    TABLE "quotation_files" CONSTRAINT "quotation_files_quotation_id_fkey" FOREIGN KEY (quotation_id) REFERENCES quotations(id) ON DELETE CASCADE
+    TABLE "quotation_items" CONSTRAINT "quotation_items_quotation_id_fkey" FOREIGN KEY (quotation_id) REFERENCES quotations(id) ON DELETE CASCADE
+    TABLE "quotation_versions" CONSTRAINT "quotation_versions_quotation_id_fkey" FOREIGN KEY (quotation_id) REFERENCES quotations(id) ON DELETE CASCADE
+Triggers:
+    update_quotations_updated_at BEFORE UPDATE ON quotations FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()
+
+quotation_db=#
+quotation_db=#
+quotation_db=# \d quotation_versions
+                            Table "public.quotation_versions"
+       Column       |           Type           | Collation | Nullable |      Default
+--------------------+--------------------------+-----------+----------+-------------------
+ id                 | uuid                     |           | not null | gen_random_uuid()
+ quotation_id       | uuid                     |           | not null |
+ version_number     | integer                  |           | not null |
+ quotation_data     | jsonb                    |           | not null |
+ change_description | text                     |           |          |
+ created_at         | timestamp with time zone |           | not null | now()
+Indexes:
+    "quotation_versions_pkey" PRIMARY KEY, btree (id)
+    "idx_quotation_versions_quotation" btree (quotation_id)
+    "quotation_versions_quotation_id_version_number_key" UNIQUE CONSTRAINT, btree (quotation_id, version_number)
+Foreign-key constraints:
+    "quotation_versions_quotation_id_fkey" FOREIGN KEY (quotation_id) REFERENCES quotations(id) ON DELETE CASCADE
+Referenced by:
+    TABLE "quotation_files" CONSTRAINT "quotation_files_version_id_fkey" FOREIGN KEY (version_id) REFERENCES quotation_versions(id) ON DELETE SET NULL
+
+quotation_db=# \q
+prashant@naukarivm:~/quotation-ai$
+prashant@naukarivm:~/quotation-ai$ cd ~/quotation-ai
+nano postgres/init/002_pricing_master.sql
+prashant@naukarivm:~/quotation-ai$ docker exec -i quotation-postgres \
+psql -U quotation_user -d quotation_db \
+< postgres/init/002_pricing_master.sql
+INSERT 0 17
+prashant@naukarivm:~/quotation-ai$ docker exec -it quotation-postgres \
+psql -U quotation_user -d quotation_db \
+-c "SELECT category, service, base_price, unit FROM pricing_master ORDER BY category, service;"
+  category   |         service          | base_price |    unit
+-------------+--------------------------+------------+-------------
+ Cloud       | AWS/Azure Setup          |   10000.00 | project
+ Cloud       | Deployment               |    5000.00 | project
+ Design      | UI/UX Design             |   15000.00 | project
+ Integration | Google Maps Integration  |    5000.00 | integration
+ Integration | Razorpay Payment Gateway |    5000.00 | integration
+ Integration | WhatsApp Integration     |    7500.00 | integration
+ Mobile App  | Admin App                |   25000.00 | project
+ Mobile App  | Customer App             |   50000.00 | project
+ Mobile App  | Flutter Application      |   60000.00 | project
+ Other       | Maintenance              |   10000.00 | month
+ Other       | Testing & QA             |    5000.00 | project
+ SEO         | Initial SEO Setup        |   10000.00 | project
+ SEO         | Monthly SEO              |   15000.00 | month
+ Website     | Admin Panel              |   20000.00 | project
+ Website     | Business Website         |   35000.00 | project
+ Website     | E-Commerce Website       |   70000.00 | project
+ Website     | Landing Page             |   10000.00 | project
+(17 rows)
+
+prashant@naukarivm:~/quotation-ai$ nano postgres/init/003_quotation_number.sql
+prashant@naukarivm:~/quotation-ai$ docker exec -i quotation-postgres \
+psql -U quotation_user -d quotation_db \
+< postgres/init/003_quotation_number.sql
+CREATE SEQUENCE
+CREATE FUNCTION
+prashant@naukarivm:~/quotation-ai$ docker exec -it quotation-postgres \
+psql -U quotation_user -d quotation_db \
+-c "SELECT generate_quotation_number();"
+ generate_quotation_number
+---------------------------
+ STD-QTN-2026-0001
+(1 row)
+
+prashant@naukarivm:~/quotation-ai$ docker ps --format "table {{.Names}}\t{{.Image}}\t{{.Ports}}" | grep -i evolution
+evolution-api             evoapicloud/evolution-api:v2.3.7          127.0.0.1:8081->8080/tcp
+evolution-postgres        postgres:15                               5432/tcp
+evolution-redis           redis:7-alpine                            6379/tcp
+prashant@naukarivm:~/quotation-ai$ docker ps | grep -i evolution
+75cb70141e88   evoapicloud/evolution-api:v2.3.7          "/bin/bash -c '. ./D…"   2 days ago       Up 20 hours               127.0.0.1:8081->8080/tcp                      evolution-api
+3610c0841f3b   postgres:15                               "docker-entrypoint.s…"   2 days ago       Up 2 days                 5432/tcp                                      evolution-postgres
+67ca1fc728ae   redis:7-alpine                            "docker-entrypoint.s…"   2 days ago       Up 2 days                 6379/tcp                                      evolution-redis
+prashant@naukarivm:~/quotation-ai$ docker inspect $(docker ps -q --filter "name=evolution") \
+--format '{{range .Config.Env}}{{println .}}{{end}}' | grep -Ei 'SERVER_URL|API_KEY|AUTHENTICATION|PORT|INSTANCE'
+CACHE_REDIS_SAVE_INSTANCES=false
+DATABASE_SAVE_DATA_INSTANCE=true
+AUTHENTICATION_API_KEY=cc17e25c5ab3bfabf62fc965cc60dd7106d7ab0e3e0c524fbc90d9e9f7f94e14
+SERVER_URL=http://127.0.0.1:8081
+SERVER_PORT=8080
+prashant@naukarivm:~/quotation-ai$ API_KEY=$(docker inspect evolution-api \
+  --format '{{range .Config.Env}}{{println .}}{{end}}' \
+  | awk -F= '$1=="AUTHENTICATION_API_KEY"{print substr($0,index($0,"=")+1)}')
+
+curl -s \
+  -H "apikey: $API_KEY" \
+  http://127.0.0.1:8081/instance/fetchInstances \
+  | jq -r '.[] | "\(.instance.instanceName) | \(.instance.status)"'
+null | null
+prashant@naukarivm:~/quotation-ai$ API_KEY=$(docker inspect evolution-api \
+  --format '{{range .Config.Env}}{{println .}}{{end}}' \
+  | awk -F= '$1=="AUTHENTICATION_API_KEY"{print substr($0,index($0,"=")+1)}')
+
+curl -s \
+  -H "apikey: $API_KEY" \
+  http://127.0.0.1:8081/instance/fetchInstances
+[{"id":"9f9f02ee-b52b-4525-90b9-20f78201e3d8","name":"shivatechdigital","connectionStatus":"open","ownerJid":"917380987098@s.whatsapp.net","profileName":"Missing","profilePicUrl":null,"integration":"WHATSAPP-BAILEYS","number":null,"businessId":null,"token":"355425AD-E1C8-4B39-BDDA-3BBADFD53C4C","clientName":"evolution","disconnectionReasonCode":null,"disconnectionObject":null,"disconnectionAt":null,"createdAt":"2026-09-14T23:39:18.825Z","updatedAt":"2026-09-16T23:14:24.888Z","Chatwoot":null,"Proxy":null,"Rabbitmq":null,"Nats":null,"Sqs":null,"Websocket":null,"Setting":{"id":"cmu1vx3n30001mr4l9w20abyv","rejectCall":false,"msgCall":"","groupsIgnore":false,"alwaysOnline":false,"readMessages":false,"readStatus":false,"syncFullHistory":false,"wavoipToken":"","createdAt":"2026-09-14T23:39:18.831Z","updatedAt":"2026-09-14T23:39:18.831Zprashant@naukarivm:~/quotation-ai$ docker ps --format "table {{.Names}}\t{{.Image}}\t{{.Ports}}" | grep -Ei 'n8n|quotation'rivm:~/quotation-ai$ docker ps --format "table {{.Names}}\t{{.Image}}\t{{.Ports}}" | grep -Ei 'n8n|quotation'
+quotation-gotenberg       gotenberg/gotenberg:8                     0.0.0.0:3100->3000/tcp, [::]:3100->3000/tcp
+quotation-postgres        postgres:17-alpine                        0.0.0.0:5435->5432/tcp, [::]:5435->5432/tcp
+lead-n8n                  n8nio/n8n:2.21.7                          127.0.0.1:5678->5678/tcp
+prashant@naukarivm:~/quotation-ai$ docker inspect lead-n8n \
+  --format '{{json .NetworkSettings.Networks}}' | jq 'keys'
+[
+  "evolution-api_evolution-network",
+  "lead-automation_default"
+]
+prashant@naukarivm:~/quotation-ai$ docker network inspect quotation-ai_default \
+  --format '{{range .Containers}}{{.Name}}{{"\n"}}{{end}}'
+quotation-postgres
+quotation-gotenberg
+
+prashant@naukarivm:~/quotation-ai$ docker network connect quotation-ai_default lead-n8n
+prashant@naukarivm:~/quotation-ai$ docker network inspect quotation-ai_default \
+  --format '{{range .Containers}}{{.Name}}{{"\n"}}{{end}}'
+quotation-postgres
+quotation-gotenberg
+lead-n8n
+
+prashant@naukarivm:~/quotation-ai$ docker exec lead-n8n \
+  sh -c 'wget -qO- http://quotation-gotenberg:3000/health'
+{"status":"up","details":{"chromium":{"status":"up","timestamp":"2026-09-17T07:13:28.867296401Z"},"libreoffice":{"status":"up","timestamp":"2026-09-17T07:13:28.867287068Z"}}}prashant@naukarivm:~/quotation-ai$ $body = @{
+    customer = @{
+        name = "Rahul Sharma"
+        phone = "917007294764"
+        email = "rahul@example.com"
+        company = "ABC Enterprises"
+    }
+    project = @{
+        name = "E-Commerce Website Development"
+        description = "Complete e-commerce website with payment gateway integration"
+    }
+    items = @(
+        @{
+            name = "Business Website"
+            quantity = 1
+        }
+        @{
+            name = "UI/UX Design"
+            quantity = 1
+        }
+        @{
+            name = "Razorpay Payment Gateway"
+            quantity = 1
+        }
+    )
+    budget = 100000
+    timeline_days = 30
+    validity_days = 15
+} | ConvertTo-Json -Depth 10
+
+  -Body $bodye "application/json" `l.com/webhook-test/quotation/create" `
+=: command not found
+customer: command not found
+Command 'name' not found, did you mean:
+  command 'mame' from snap mame (mame0289)
+  command 'nam' from deb nam (1.15-6)
+  command 'nama' from deb nama (1.216-2)
+  command 'mame' from deb mame (0.261+dfsg.1-1)
+  command 'uname' from deb coreutils (9.4-3ubuntu6.2)
+  command 'lame' from deb lame (3.100-6)
+  command 'namei' from deb util-linux (2.39.3-9ubuntu6.5)
+  command 'named' from deb bind9 (1:9.18.39-0ubuntu0.24.04.5)
+  command 'nvme' from deb nvme-cli (2.8-1ubuntu0.1)
+See 'snap info <snapname>' for additional versions.
+phone: command not found
+Command 'email' not found, did you mean:
+  command 'bmail' from snap bmail (1.0.0)
+  command 'tmail' from deb uw-mailutils (8:2007f~dfsg-7build1)
+  command 'rmail' from deb exim4-daemon-heavy (4.97-4ubuntu4.6)
+  command 'rmail' from deb exim4-daemon-light (4.97-4ubuntu4.6)
+  command 'rmail' from deb postfix (3.8.6-1ubuntu0.1)
+  command 'rmail' from deb courier-mta (1.0.16-3.2)
+  command 'rmail' from deb rmail (8.17.2-1)
+  command 'dmail' from deb uw-mailutils (8:2007f~dfsg-7build1)
+  command 'cmail' from deb xboard (4.9.1-2build1)
+  command 'wmail' from deb wmail (2.3-2)
+  command 'mail' from deb mailutils (1:3.16-1build1)
+  command 'kmail' from deb kmail (4:23.08.5-0ubuntu5.1)
+See 'snap info <snapname>' for additional versions.
+company: command not found
+-bash: syntax error near unexpected token `}'
+Command 'project' not found, but can be installed with:
+sudo apt install todo.txt-gtd
+Command 'name' not found, did you mean:
+  command 'mame' from snap mame (mame0289)
+  command 'lame' from deb lame (3.100-6)
+  command 'nam' from deb nam (1.15-6)
+  command 'named' from deb bind9 (1:9.18.39-0ubuntu0.24.04.5)
+  command 'nama' from deb nama (1.216-2)
+  command 'nvme' from deb nvme-cli (2.8-1ubuntu0.1)
+  command 'mame' from deb mame (0.261+dfsg.1-1)
+  command 'namei' from deb util-linux (2.39.3-9ubuntu6.5)
+  command 'uname' from deb coreutils (9.4-3ubuntu6.2)
+See 'snap info <snapname>' for additional versions.
+description: command not found
+-bash: syntax error near unexpected token `}'
+items: command not found
+budget: command not found
+timeline_days: command not found
+validity_days: command not found
+-bash: syntax error near unexpected token `}'
+-Uri: command not found
+Invoke-RestMethod: command not found
+-ContentType: command not found
+-Method: command not found
+-Body: command not found
+prashant@naukarivm:~/quotation-ai$ cd ~/quotation-ai
+docker exec quotation-postgres pg_isready -U quotation_user -d quotation_db
+/var/run/postgresql:5432 - accepting connections
+prashant@naukarivm:~/quotation-ai$ docker network inspect quotation-ai_default | grep -E '"Name": "(lead-n8n|quotation-postgres)"'
+                "Name": "quotation-postgres",
+                "Name": "lead-n8n",
+prashant@naukarivm:~/quotation-ai$ docker exec lead-n8n sh -c 'getent hosts quotation-postgres'
+sh: getent: not found
+prashant@naukarivm:~/quotation-ai$ docker exec lead-n8n sh -c 'nc -zv quotation-postgres 5432'
+quotation-postgres (172.22.0.2:5432) open
+prashant@naukarivm:~/quotation-ai$ docker exec -it quotation-postgres psql -U quotation_user -d quotation_db
+psql (17.11)
+Type "help" for help.
+
+quotation_db=# docker exec quotation-postgres sh -c 'PGPASSWORD="Password1234" psql -h quotation-postgres -U quotation_user -d quotation_db -c "SELECT current_user, current_database();"'
+quotation_db=# exit
+prashant@naukarivm:~/quotation-ai$ docker exec quotation-postgres sh -c 'PGPASSWORD="Password1234" psql -h quotation-postgres -U quotation_user -d quotation_db -c "SELECT current_user, current_database();"'
+  current_user  | current_database
+----------------+------------------
+ quotation_user | quotation_db
+(1 row)
+
+prashant@naukarivm:~/quotation-ai$ docker exec quotation-postgres sh -c 'PGPASSWORD="Password1234" psql -h quotation-postgres -U quotation_user -d quotation_db -c "SELECT current_user, current_database();"'
+  current_user  | current_database
+----------------+------------------
+ quotation_user | quotation_db
+(1 row)
+
+prashant@naukarivm:~/quotation-ai$ docker exec lead-n8n node -e "const {Client}=require('pg'); const c=new Client({host:'quotation-postgres',port:5432,database:'quotation_db',user:'quotation_user',password:'Password1234',ssl:false}); c.connect().then(()=>c.query('SELECT current_user,current_database()')).then(r=>{console.log(r.rows);return c.end()}).catch(e=>{console.error(e.message);process.exit(1)})"
+node:internal/modules/cjs/loader:1479
+  throw err;
+  ^
+
+Error: Cannot find module 'pg'
+Require stack:
+- /home/node/[eval]
+    at Module._resolveFilename (node:internal/modules/cjs/loader:1476:15)
+    at wrapResolveFilename (node:internal/modules/cjs/loader:1049:27)
+    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1073:10)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1094:12)
+    at Module._load (node:internal/modules/cjs/loader:1262:25)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.require (node:internal/modules/cjs/loader:1576:12)
+    at require (node:internal/modules/helpers:153:16)
+    at [eval]:1:16
+    at runScriptInThisContext (node:internal/vm:219:10) {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [ '/home/node/[eval]' ]
+}
+
+Node.js v24.15.0
+prashant@naukarivm:~/quotation-ai$ docker exec -it quotation-postgres psql -U quotation_user -d quotation_db -c '\d pricing_master'
+                                Table "public.pricing_master"
+   Column    |           Type           | Collation | Nullable |           Default
+-------------+--------------------------+-----------+----------+------------------------------
+ id          | uuid                     |           | not null | gen_random_uuid()
+ category    | character varying(100)   |           | not null |
+ service     | character varying(255)   |           | not null |
+ description | text                     |           |          |
+ base_price  | numeric(12,2)            |           | not null | 0
+ unit        | character varying(50)    |           |          | 'project'::character varying
+ is_active   | boolean                  |           | not null | true
+ created_at  | timestamp with time zone |           | not null | now()
+ updated_at  | timestamp with time zone |           | not null | now()
+Indexes:
+    "pricing_master_pkey" PRIMARY KEY, btree (id)
+    "idx_pricing_master_active" btree (is_active)
+    "idx_pricing_master_category" btree (category)
+Triggers:
+    update_pricing_master_updated_at BEFORE UPDATE ON pricing_master FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()
+
+prashant@naukarivm:~/quotation-ai$ docker exec -it quotation-postgres psql -U quotation_user -d quotation_db -c '\d customers'
+                               Table "public.customers"
+     Column      |           Type           | Collation | Nullable |      Default
+-----------------+--------------------------+-----------+----------+-------------------
+ id              | uuid                     |           | not null | gen_random_uuid()
+ name            | character varying(255)   |           | not null |
+ business_name   | character varying(255)   |           |          |
+ whatsapp_number | character varying(30)    |           | not null |
+ created_at      | timestamp with time zone |           | not null | now()
+ updated_at      | timestamp with time zone |           | not null | now()
+Indexes:
+    "customers_pkey" PRIMARY KEY, btree (id)
+    "idx_customers_whatsapp" btree (whatsapp_number)
+Referenced by:
+    TABLE "quotations" CONSTRAINT "quotations_customer_id_fkey" FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE RESTRICT
+Triggers:
+    update_customers_updated_at BEFORE UPDATE ON customers FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()
+
+prashant@naukarivm:~/quotation-ai$ docker exec -it quotation-postgres psql -U quotation_user -d quotation_db -c '\d quotations'
+                                    Table "public.quotations"
+      Column      |           Type           | Collation | Nullable |          Default
+------------------+--------------------------+-----------+----------+----------------------------
+ id               | uuid                     |           | not null | gen_random_uuid()
+ quotation_number | character varying(50)    |           | not null |
+ customer_id      | uuid                     |           | not null |
+ budget           | numeric(12,2)            |           |          |
+ subtotal         | numeric(12,2)            |           | not null | 0
+ discount         | numeric(12,2)            |           | not null | 0
+ gst_percentage   | numeric(5,2)             |           | not null | 18
+ gst_amount       | numeric(12,2)            |           | not null | 0
+ grand_total      | numeric(12,2)            |           | not null | 0
+ timeline         | character varying(100)   |           |          |
+ validity_days    | integer                  |           |          | 15
+ status           | character varying(30)    |           | not null | 'DRAFT'::character varying
+ current_version  | integer                  |           | not null | 1
+ created_at       | timestamp with time zone |           | not null | now()
+ updated_at       | timestamp with time zone |           | not null | now()
+Indexes:
+    "quotations_pkey" PRIMARY KEY, btree (id)
+    "idx_quotations_customer" btree (customer_id)
+    "idx_quotations_status" btree (status)
+    "quotations_quotation_number_key" UNIQUE CONSTRAINT, btree (quotation_number)
+Check constraints:
+    "quotations_status_check" CHECK (status::text = ANY (ARRAY['DRAFT'::character varying, 'GENERATING'::character varying, 'PENDING_APPROVAL'::character varying, 'EDITING'::character varying, 'APPROVED'::character varying, 'SENT'::character varying, 'REJECTED'::character varying, 'TRASH'::character varying]::text[]))
+Foreign-key constraints:
+    "quotations_customer_id_fkey" FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE RESTRICT
+Referenced by:
+    TABLE "quotation_actions" CONSTRAINT "quotation_actions_quotation_id_fkey" FOREIGN KEY (quotation_id) REFERENCES quotations(id) ON DELETE CASCADE
+    TABLE "quotation_files" CONSTRAINT "quotation_files_quotation_id_fkey" FOREIGN KEY (quotation_id) REFERENCES quotations(id) ON DELETE CASCADE
+    TABLE "quotation_items" CONSTRAINT "quotation_items_quotation_id_fkey" FOREIGN KEY (quotation_id) REFERENCES quotations(id) ON DELETE CASCADE
+    TABLE "quotation_versions" CONSTRAINT "quotation_versions_quotation_id_fkey" FOREIGN KEY (quotation_id) REFERENCES quotations(id) ON DELETE CASCADE
+Triggers:
+    update_quotations_updated_at BEFORE UPDATE ON quotations FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()
+
+prashant@naukarivm:~/quotation-ai$ xec -it quotation-postgres psql -U quotation_user -d quotation_db -c '\d quotation_items'
+Command 'xec' not found, did you mean:
+  command 'xev' from deb x11-utils (7.7+6)
+  command 'xen' from deb xen-utils-common (4.17.2+76-ge1f9cb16e2-1)
+  command 'xe' from deb xe (0.11-5)
+  command 'zec' from deb zec (0.12-5)
+  command 'xjc' from deb openjdk-8-jdk-headless (8u492-ga~us2-0ubuntu1~24.04.1)
+  command 'xjc' from deb jaxb (2.3.0.1-10.1)
+  command 'rec' from deb sox (14.4.2+git20190427-4)
+  command 'xep' from deb pvm-examples (3.4.6-5)
+  command 'xgc' from deb x11-apps (7.7+11)
+  command 'xc' from deb iraf-dev (2.17.1-3)
+  command 'sec' from deb sec (2.9.2-1)
+Try: sudo apt install <deb name>
+prashant@naukarivm:~/quotation-ai$ docker exec -it quotation-postgres psql -U quotation_user -d quotation_db -c '\d quotation_items'
+                           Table "public.quotation_items"
+    Column    |           Type           | Collation | Nullable |      Default
+--------------+--------------------------+-----------+----------+-------------------
+ id           | uuid                     |           | not null | gen_random_uuid()
+ quotation_id | uuid                     |           | not null |
+ description  | text                     |           | not null |
+ quantity     | numeric(10,2)            |           | not null | 1
+ unit_price   | numeric(12,2)            |           | not null | 0
+ total        | numeric(12,2)            |           | not null | 0
+ sort_order   | integer                  |           | not null | 0
+ created_at   | timestamp with time zone |           | not null | now()
+Indexes:
+    "quotation_items_pkey" PRIMARY KEY, btree (id)
+    "idx_quotation_items_quotation" btree (quotation_id)
+Foreign-key constraints:
+    "quotation_items_quotation_id_fkey" FOREIGN KEY (quotation_id) REFERENCES quotations(id) ON DELETE CASCADE
+
+prashant@naukarivm:~/quotation-ai$ docker exec -it quotation-postgres psql -U quotation_user -d quotation_db -c '\d quotation_versions'
+                            Table "public.quotation_versions"
+       Column       |           Type           | Collation | Nullable |      Default
+--------------------+--------------------------+-----------+----------+-------------------
+ id                 | uuid                     |           | not null | gen_random_uuid()
+ quotation_id       | uuid                     |           | not null |
+ version_number     | integer                  |           | not null |
+ quotation_data     | jsonb                    |           | not null |
+ change_description | text                     |           |          |
+ created_at         | timestamp with time zone |           | not null | now()
+Indexes:
+    "quotation_versions_pkey" PRIMARY KEY, btree (id)
+    "idx_quotation_versions_quotation" btree (quotation_id)
+    "quotation_versions_quotation_id_version_number_key" UNIQUE CONSTRAINT, btree (quotation_id, version_number)
+Foreign-key constraints:
+    "quotation_versions_quotation_id_fkey" FOREIGN KEY (quotation_id) REFERENCES quotations(id) ON DELETE CASCADE
+Referenced by:
+    TABLE "quotation_files" CONSTRAINT "quotation_files_version_id_fkey" FOREIGN KEY (version_id) REFERENCES quotation_versions(id) ON DELETE SET NULL
+
+prashant@naukarivm:~/quotation-ai$ cd ~/quotation-ai
+
+curl -s \
+  -H "apikey: cc17e25c5ab3bfabf62fc965cc60dd7106d7ab0e3e0c524fbc90d9e9f7f94e14" \
+  http://127.0.0.1:8081/webhook/find/shivatechdigital | jq
+null
+prashant@naukarivm:~/quotation-ai$ curl -s \
+  -H "apikey: cc17e25c5ab3bfabf62fc965cc60dd7106d7ab0e3e0c524fbc90d9e9f7f94e14" \
+  http://127.0.0.1:8081/instance/fetchInstances \
+| jq 'map({
+    instance: .name,
+    status: .connectionStatus,
+    integration: .integration,
+    webhook: .webhook
+  })'
+[
+  {
+    "instance": "shivatechdigital",
+    "status": "open",
+    "integration": "WHATSAPP-BAILEYS",
+    "webhook": null
+  }
+]
+prashant@naukarivm:~/quotation-ai$ docker exec evolution-api env | grep -E '^WEBHOOK_' | sort
+prashant@naukarivm:~/quotation-ai$ docker exec evolution-api env | grep -E '^(SERVER_URL|WEBHOOK_|DATABASE_SAVE_DATA_NEW_MESSAGE|DATABASE_SAVE_MESSAGE_UPDATE)' | sort
+DATABASE_SAVE_DATA_NEW_MESSAGE=true
+DATABASE_SAVE_MESSAGE_UPDATE=true
+SERVER_URL=http://127.0.0.1:8081
+prashant@naukarivm:~/quotation-ai$ curl -s -X POST \
+  -H "Content-Type: application/json" \
+  -H "apikey: cc17e25c5ab3bfabf62fc965cc60dd7106d7ab0e3e0c524fbc90d9e9f7f94e14" \
+  http://127.0.0.1:8081/webhook/set/shivatechdigital \
+  -d '{
+    "webhook": {
+      "enabled": true,
+      "url": "https://n8n.shivatechdigital.com/webhook/quotation-whatsapp-action",
+      "webhookByEvents": false,
+      "webhookBase64": false,
+      "events": [
+        "MESSAGES_UPSERT"
+      ]
+    }
+  }' | jq
+{
+  "id": "cmu5agzpb0081mr4ku2fzgzun",
+  "url": "https://n8n.shivatechdigital.com/webhook/quotation-whatsapp-action",
+  "headers": null,
+  "enabled": true,
+  "events": [
+    "MESSAGES_UPSERT"
+  ],
+  "webhookByEvents": false,
+  "webhookBase64": false,
+  "createdAt": "2026-09-17T08:49:59.998Z",
+  "updatedAt": "2026-09-17T08:49:59.998Z",
+  "instanceId": "9f9f02ee-b52b-4525-90b9-20f78201e3d8"
+}
+prashant@naukarivm:~/quotation-ai$ cd ~/quotation-ai
+
+grep -E '^(AUTHENTICATION_API_KEY|EVOLUTION_API_KEY)=' .env | cut -d= -f1
+prashant@naukarivm:~/quotation-ai$ vi .env
+prashant@naukarivm:~/quotation-ai$ vi .env
+prashant@naukarivm:~/quotation-ai$ grep -E '^(AUTHENTICATION_API_KEY|EVOLUTION_API_KEY)=' .env | cut -d= -f1
+AUTHENTICATION_API_KEY
+prashant@naukarivm:~/quotation-ai$ cd ~/quotation-ai
+
+set -a
+source .env
+set +a
+
+curl -s -X POST \
+  -H "Content-Type: application/json" \
+  -H "apikey: $AUTHENTICATION_API_KEY" \
+  http://127.0.0.1:8081/webhook/set/shivatechdigital \
+  -d '{
+    "webhook": {
+      "enabled": true,
+      "url": "https://n8n.shivatechdigital.com/webhook/quotation-whatsapp-action",
+      "webhookByEvents": false,
+      "webhookBase64": false,
+      "events": [
+        "MESSAGES_UPSERT",
+        "MESSAGES_UPDATE"
+      ]
+    }
+  }' | jq
+{
+  "id": "cmu5agzpb0081mr4ku2fzgzun",
+  "url": "https://n8n.shivatechdigital.com/webhook/quotation-whatsapp-action",
+  "headers": null,
+  "enabled": true,
+  "events": [
+    "MESSAGES_UPSERT",
+    "MESSAGES_UPDATE"
+  ],
+  "webhookByEvents": false,
+  "webhookBase64": false,
+  "createdAt": "2026-09-17T08:49:59.998Z",
+  "updatedAt": "2026-09-17T08:57:03.003Z",
+  "instanceId": "9f9f02ee-b52b-4525-90b9-20f78201e3d8"
+}
+prashant@naukarivm:~/quotation-ai$ docker exec -it quotation-postgres psql \
+  -U quotation_user \
+  -d quotation_db
+psql (17.11)
+Type "help" for help.
+
+quotation_db=# CREATE TABLE IF NOT EXISTS quotation_poll_sessions (
+quotation_db(#     id BIGSERIAL PRIMARY KEY,
+quotation_db(#
+quotation_db(#     quotation_id UUID NOT NULL
+quotation_db(#         REFERENCES quotations(id)
+quotation_db(#         ON DELETE CASCADE,
+quotation_db(#
+quotation_db(#     quotation_number VARCHAR(100) NOT NULL,
+quotation_db(#
+quotation_db(#     poll_message_id VARCHAR(255) NOT NULL UNIQUE,
+quotation_db(#
+quotation_db(#     poll_remote_jid VARCHAR(255),
+quotation_db(#
+quotation_db(#     customer_phone VARCHAR(30) NOT NULL,
+quotation_db(#
+quotation_db(#     selected_action VARCHAR(20),
+quotation_db(#
+quotation_db(#     status VARCHAR(20) NOT NULL DEFAULT 'PENDING'
+quotation_db(#         CHECK (status IN ('PENDING', 'RESPONDED', 'EXPIRED')),
+quotation_db(#
+quotation_db(#     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+quotation_db(#
+quotation_db(#     responded_at TIMESTAMP
+quotation_db(# );
+ EXISTS idx_quotation_poll_message_id
+ON quotation_poll_sessions(poll_message_id);
+
+CREATE INDEX IF NOT EXISTS idx_quotation_poll_customer_phone
+ON quotation_poll_sessions(cusCREATE TABLE
+quotation_db=#
+quotation_db=# CREATE INDEX IF NOT EXISTS idx_quotation_poll_message_id
+quotation_db-# ON quotation_poll_sessions(poll_message_id);
+CREATE INDEX
+quotation_db=#
+quotation_db=# CREATE INDEX IF NOT EXISTS idx_quotation_poll_customer_phone
+quotation_db-# ON quotation_poll_sessions(customer_phone);
+CREATE INDEX
+quotation_db=# \q
+prashant@naukarivm:~/quotation-ai$ docker exec -it quotation-postgres psql \
+  -U quotation_user \
+  -d quotation_db
+psql (17.11)
+Type "help" for help.
+
+quotation_db=# INSERT INTO quotation_poll_sessions (
+quotation_db(#     quotation_id,
+quotation_db(#     quotation_number,
+quotation_db(#     poll_message_id,
+quotation_db(#     poll_remote_jid,
+quotation_db(#     customer_phone,
+quotation_db(#     status
+quotation_db(# )
+quotation_db-# SELECT
+quotation_db-#     id,
+quotation_db-#     quotation_number,
+quotation_db-#     '3EB03CA0963E2A39C95929',
+quotation_db-#     '53094419316779@lid',
+quotation_db-#     '917007294764',
+quotation_db-#     'PENDING'
+quotation_db-# FROM quotations
+quotation_db-# WHERE quotation_number = 'STD-QTN-2026-0003'
+quotation_db-# ON CONFLICT (poll_message_id) DO NOTHING;
+INSERT 0 1
+quotation_db=# SELECT
+quotation_db-#     quotation_number,
+quotation_db-#     poll_message_id,
+quotation_db-#     customer_phone,
+quotation_db-#     selected_action,
+quotation_db-#     status
+quotation_db-# FROM quotation_poll_sessions
+quotation_db-# ORDER BY id DESC
+quotation_db-# LIMIT 5;
+ quotation_number  |    poll_message_id     | customer_phone | selected_action | status
+-------------------+------------------------+----------------+-----------------+---------
+ STD-QTN-2026-0003 | 3EB03CA0963E2A39C95929 | 917007294764   |                 | PENDING
+(1 row)
+
+quotation_db=# \q
+prashant@naukarivm:~/quotation-ai$ docker exec -it quotation-postgres psql \
+  -U quotation_user \
+  -d quotation_db
+psql (17.11)
+Type "help" for help.
+
+quotation_db=# INSERT INTO quotation_poll_sessions (
+quotation_db(#     quotation_id,
+quotation_db(#     quotation_number,
+quotation_db(#     poll_message_id,
+quotation_db(#     poll_remote_jid,
+quotation_db(#     customer_phone,
+quotation_db(#     status
+quotation_db(# )
+quotation_db-# SELECT
+quotation_db-#     id,
+quotation_db-#     quotation_number,
+quotation_db-#     '3EB065769031954B1CDF98',
+quotation_db-#     '53094419316779@lid',
+quotation_db-#     '917007294764',
+quotation_db-#     'PENDING'
+quotation_db-# FROM quotations
+quotation_db-# WHERE quotation_number = 'STD-QTN-2026-0003'
+quotation_db-# ON CONFLICT (poll_message_id) DO NOTHING;
+INSERT 0 1
+quotation_db=# SELECT
+quotation_db-#     quotation_number,
+quotation_db-#     poll_message_id,
+quotation_db-#     customer_phone,
+quotation_db-#     status
+quotation_db-# FROM quotation_poll_sessions
+quotation_db-# ORDER BY id DESC
+quotation_db-# LIMIT 5;
+ quotation_number  |    poll_message_id     | customer_phone | status
+-------------------+------------------------+----------------+---------
+ STD-QTN-2026-0003 | 3EB065769031954B1CDF98 | 917007294764   | PENDING
+ STD-QTN-2026-0003 | 3EB03CA0963E2A39C95929 | 917007294764   | PENDING
+(2 rows)
+
+quotation_db=# \q
+prashant@naukarivm:~/quotation-ai$ cd ~/quotation-ai
+
+docker exec -it quotation-postgres psql \
+  -U quotation_user \
+  -d quotation_db \
+  -c "
+INSERT INTO quotation_poll_sessions (
+    quotation_id,
+    quotation_number,
+    poll_message_id,
+    poll_remote_jid,
+    customer_phone,
+    status
+)
+SELECT
+    id,
+    quotation_number,
+    '3EB065769031954B1CDF98',
+    '53094419316779@lid',
+    '917007294764',
+    'PENDING'
+FROM quotations
+WHERE quotation_number = 'STD-QTN-2026-0003'
+ON CONFLICT (poll_message_id) DO NOTHING;
+"
+INSERT 0 0
+prashant@naukarivm:~/quotation-ai$ docker exec -it quotation-postgres psql \
+  -U quotation_user \
+  -d quotation_db \
+  -c "
+SELECT quotation_number,
+       poll_message_id,
+       customer_phone,
+       status
+FROM quotation_poll_sessions
+ORDER BY id DESC
+LIMIT 5;
+"
+ quotation_number  |    poll_message_id     | customer_phone | status
+-------------------+------------------------+----------------+---------
+ STD-QTN-2026-0003 | 3EB065769031954B1CDF98 | 917007294764   | PENDING
+ STD-QTN-2026-0003 | 3EB03CA0963E2A39C95929 | 917007294764   | PENDING
+(2 rows)
+
+prashant@naukarivm:~/quotation-ai$ cd ~/quotation-ai
+
+docker exec -it quotation-postgres psql \
+  -U quotation_user \
+  -d quotation_db \
+  -c "
+INSERT INTO quotation_poll_sessions (
+    quotation_id,
+    quotation_number,
+    poll_message_id,
+    poll_remote_jid,
+    customer_phone,
+    status
+)
+SELECT
+    id,
+    quotation_number,
+    '3EB07B394FB0D1587DE207',
+    '53094419316779@lid',
+    '917007294764',
+    'PENDING'
+FROM quotations
+WHERE quotation_number = 'STD-QTN-2026-0003'
+ON CONFLICT (poll_message_id) DO NOTHING;
+"
+INSERT 0 1
+prashant@naukarivm:~/quotation-ai$ cd ~/quotation-ai
+
+docker exec -it quotation-postgres psql \
+  -U quotation_user \
+  -d quotation_db \
+  -c "
+SELECT
+    qps.id,
+    qps.quotation_number,
+    qps.poll_message_id,
+    qps.poll_remote_jid,
+    qps.customer_phone,
+    qps.status,
+    qps.quotation_id
+FROM quotation_poll_sessions qps
+ORDER BY qps.id DESC
+LIMIT 10;
+"
+ id | quotation_number  |    poll_message_id     |  poll_remote_jid   | customer_phone | status  |             quotation_id
+----+-------------------+------------------------+--------------------+----------------+---------+--------------------------------------
+  4 | STD-QTN-2026-0003 | 3EB07B394FB0D1587DE207 | 53094419316779@lid | 917007294764   | PENDING | fe48d8db-f8b7-4d16-af87-7eee35fb4ab9
+  2 | STD-QTN-2026-0003 | 3EB065769031954B1CDF98 | 53094419316779@lid | 917007294764   | PENDING | fe48d8db-f8b7-4d16-af87-7eee35fb4ab9
+  1 | STD-QTN-2026-0003 | 3EB03CA0963E2A39C95929 | 53094419316779@lid | 917007294764   | PENDING | fe48d8db-f8b7-4d16-af87-7eee35fb4ab9
+(3 rows)
+
+prashant@naukarivm:~/quotation-ai$ client_loop: send disconnect: Connection reset
+
+C:\Users\raoprash>ssh prashant@20.83.162.90
+prashant@20.83.162.90's password:
+Welcome to Ubuntu 24.04.5 LTS (GNU/Linux 6.17.0-1022-azure x86_64)
+
+ * Documentation:  https://help.ubuntu.com
+ * Management:     https://landscape.canonical.com
+ * Support:        https://ubuntu.com/pro
+
+ System information as of Thu Sep 17 12:06:14 UTC 2026
+
+  System load:  0.0                Temperature:           71.8 C
+  Usage of /:   49.2% of 57.08GB   Processes:             232
+  Memory usage: 54%                Users logged in:       1
+  Swap usage:   10%                IPv4 address for eth0: 172.16.0.4
+
+ * Canonical Workshop gives developers fast, composable, reproducible, and
+   secure developer environments that are perfect for agentic workflows.
+
+   https://ubuntu.com/workshop
+
+Expanded Security Maintenance for Applications is not enabled.
+
+0 updates can be applied immediately.
+
+3 additional security updates can be applied with ESM Apps.
+Learn more about enabling ESM Apps service at https://ubuntu.com/esm
+
+
+Last login: Thu Sep 17 06:46:34 2026 from 136.226.243.4
+prashant@naukarivm:~$ cd quotation-ai/
+prashant@naukarivm:~/quotation-ai$ docker exec -it quotation-postgres psql \
+  -U quotation_user \
+  -d quotation_db \
+  -c "\d customers"
+                               Table "public.customers"
+     Column      |           Type           | Collation | Nullable |      Default
+-----------------+--------------------------+-----------+----------+-------------------
+ id              | uuid                     |           | not null | gen_random_uuid()
+ name            | character varying(255)   |           | not null |
+ business_name   | character varying(255)   |           |          |
+ whatsapp_number | character varying(30)    |           | not null |
+ created_at      | timestamp with time zone |           | not null | now()
+ updated_at      | timestamp with time zone |           | not null | now()
+Indexes:
+    "customers_pkey" PRIMARY KEY, btree (id)
+    "idx_customers_whatsapp" btree (whatsapp_number)
+Referenced by:
+    TABLE "quotations" CONSTRAINT "quotations_customer_id_fkey" FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE RESTRICT
+Triggers:
+    update_customers_updated_at BEFORE UPDATE ON customers FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()
+
+prashant@naukarivm:~/quotation-ai$ [200~docker exec -it quotation-postgres psql \
+>   -U quotation_user \
+>   -d quotation_db \
+>   -c "\d quotation_items"~
+[200~docker: command not found
+prashant@naukarivm:~/quotation-ai$ docker exec -it quotation-postgres psql \
+  -U quotation_user \
+  -d quotation_db \
+  -c "\d quotation_items"
+                           Table "public.quotation_items"
+    Column    |           Type           | Collation | Nullable |      Default
+--------------+--------------------------+-----------+----------+-------------------
+ id           | uuid                     |           | not null | gen_random_uuid()
+ quotation_id | uuid                     |           | not null |
+ description  | text                     |           | not null |
+ quantity     | numeric(10,2)            |           | not null | 1
+ unit_price   | numeric(12,2)            |           | not null | 0
+ total        | numeric(12,2)            |           | not null | 0
+ sort_order   | integer                  |           | not null | 0
+ created_at   | timestamp with time zone |           | not null | now()
+Indexes:
+    "quotation_items_pkey" PRIMARY KEY, btree (id)
+    "idx_quotation_items_quotation" btree (quotation_id)
+Foreign-key constraints:
+    "quotation_items_quotation_id_fkey" FOREIGN KEY (quotation_id) REFERENCES quotations(id) ON DELETE CASCADE
+
+prashant@naukarivm:~/quotation-ai$ docker exec -it quotation-postgres psql \
+  -U quotation_user \
+  -d quotation_db \
+  -c "
+SELECT *
+FROM quotation_items
+WHERE quotation_id = 'fe48d8db-f8b7-4d16-af87-7eee35fb4ab9';
+"
+                  id                  |             quotation_id             |       description        | quantity | unit_price |  total   | sort_order |          created_at
+--------------------------------------+--------------------------------------+--------------------------+----------+------------+----------+------------+-------------------------------
+ 88238c4f-216f-40d4-a74d-d8b18ff9e777 | fe48d8db-f8b7-4d16-af87-7eee35fb4ab9 | Business Website         |     1.00 |   35000.00 | 35000.00 |          1 | 2026-09-17 08:27:49.796756+00
+ 7b6f1fc4-ba7f-42de-a13b-b4f9c9b4fa16 | fe48d8db-f8b7-4d16-af87-7eee35fb4ab9 | UI/UX Design             |     1.00 |   15000.00 | 15000.00 |          2 | 2026-09-17 08:27:49.796756+00
+ e3960b64-c79f-4d0a-aa3d-c64f405da5f9 | fe48d8db-f8b7-4d16-af87-7eee35fb4ab9 | Razorpay Payment Gateway |     1.00 |    5000.00 |  5000.00 |          3 | 2026-09-17 08:27:49.796756+00
+(3 rows)
+
+prashant@naukarivm:~/quotation-ai$ docker exec -it quotation-postgres psql \
+  -U quotation_user \
+  -d quotation_db \
+  -c "
+SELECT
+    qps.id AS poll_session_id,
+    qps.quotation_id,
+    qps.quotation_number,
+    qps.poll_message_id,
+    qps.poll_remote_jid,
+    qps.customer_phone,
+    qps.selected_action,
+    qps.status AS poll_status,
+    qps.created_at,
+    qps.responded_at,
+    q.status AS quotation_status,
+    q.current_version
+FROM quotation_poll_sessions qps
+JOIN quotations q
+    ON q.id = qps.quotation_id
+WHERE qps.quotation_id = 'fe48d8db-f8b7-4d16-af87-7eee35fb4ab9'
+ORDER BY qps.created_at DESC;
+"
+ poll_session_id |             quotation_id             | quotation_number  |    poll_message_id     |       poll_remote_jid       | customer_phone | selected_action | poll_status |         created_at         | responded_at | quotation_status | current_version
+-----------------+--------------------------------------+-------------------+------------------------+-----------------------------+----------------+-----------------+-------------+----------------------------+--------------+------------------+-----------------
+              10 | fe48d8db-f8b7-4d16-af87-7eee35fb4ab9 | STD-QTN-2026-0003 | 3EB0F5A4DFE5AE9B091636 | 917007294764@s.whatsapp.net | 917007294764   |                 | PENDING     | 2026-09-17 13:03:10.741053 |              | EDITING          |               1
+               9 | fe48d8db-f8b7-4d16-af87-7eee35fb4ab9 | STD-QTN-2026-0003 | 3EB083D9F5D4A659C127B4 | 917007294764@s.whatsapp.net | 917007294764   |                 | PENDING     | 2026-09-17 11:57:07.588093 |              | EDITING          |               1
+               8 | fe48d8db-f8b7-4d16-af87-7eee35fb4ab9 | STD-QTN-2026-0003 | 3EB026DFD5A46275DF93D9 | 917007294764@s.whatsapp.net | 917007294764   |                 | PENDING     | 2026-09-17 09:42:40.564257 |              | EDITING          |               1
+               7 | fe48d8db-f8b7-4d16-af87-7eee35fb4ab9 | STD-QTN-2026-0003 | 3EB0EBBCFAFE04156227D4 | 917007294764@s.whatsapp.net | 917007294764   |                 | PENDING     | 2026-09-17 09:33:34.893086 |              | EDITING          |               1
+               4 | fe48d8db-f8b7-4d16-af87-7eee35fb4ab9 | STD-QTN-2026-0003 | 3EB07B394FB0D1587DE207 | 53094419316779@lid          | 917007294764   |                 | PENDING     | 2026-09-17 09:22:07.938739 |              | EDITING          |               1
+               2 | fe48d8db-f8b7-4d16-af87-7eee35fb4ab9 | STD-QTN-2026-0003 | 3EB065769031954B1CDF98 | 53094419316779@lid          | 917007294764   |                 | PENDING     | 2026-09-17 09:14:56.381816 |              | EDITING          |               1
+               1 | fe48d8db-f8b7-4d16-af87-7eee35fb4ab9 | STD-QTN-2026-0003 | 3EB03CA0963E2A39C95929 | 53094419316779@lid          | 917007294764   |                 | PENDING     | 2026-09-17 09:04:35.00513  |              | EDITING          |               1
+(7 rows)
+
+prashant@naukarivm:~/quotation-ai$ git status
+On branch main
+Your branch is up to date with 'origin/main'.
+
+Changes not staged for commit:
+  (use "git add <file>..." to update what will be committed)
+  (use "git restore <file>..." to discard changes in working directory)
+        modified:   .env
+        modified:   .gitignore
+        modified:   docker-compose.yml
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+        postgres/
+
+no changes added to commit (use "git add" and/or "git commit -a")
+prashant@naukarivm:~/quotation-ai$ git add .
+prashant@naukarivm:~/quotation-ai$ git commit -m "complete the flow"
+[main d9b2f19] complete the flow
+ Committer: Ubuntu <prashant@naukarivm.jwvnhwljxy1evhwfptzepbh1fb.bx.internal.cloudapp.net>
+Your name and email address were configured automatically based
+on your username and hostname. Please check that they are accurate.
+You can suppress this message by setting them explicitly:
+
+    git config --global user.name "Your Name"
+    git config --global user.email you@example.com
+
+After doing this, you may fix the identity used for this commit with:
+
+    git commit --amend --reset-author
+
+ 6 files changed, 417 insertions(+)
+ create mode 100644 postgres/init/001_schema.sql
+ create mode 100644 postgres/init/002_pricing_master.sql
+ create mode 100644 postgres/init/003_quotation_number.sql
+prashant@naukarivm:~/quotation-ai$ git push origin main
+Enumerating objects: 14, done.
+Counting objects: 100% (12/12), done.
+Delta compression using up to 2 threads
+Compressing objects: 100% (8/8), done.
+Writing objects: 100% (10/10), 3.30 KiB | 3.30 MiB/s, done.
+Total 10 (delta 0), reused 0 (delta 0), pack-reused 0
+To github.com:shivatechdigital/quotation-ai.git
+   15c16da..d9b2f19  main -> main
+prashant@naukarivm:~/quotation-ai$ client_loop: send disconnect: Connection reset
+
+C:\Users\raoprash>

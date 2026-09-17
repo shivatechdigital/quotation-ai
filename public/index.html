@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Quotation Admin Panel</title>
+    <style>
+      :root {
+        --bg: #f3f7ff;
+        --panel: #ffffff;
+        --primary: #1d4ed8;
+        --primary-dark: #163db4;
+        --primary-soft: #dfe9ff;
+        --success: #16a34a;
+        --warning: #f59e0b;
+        --danger: #dc2626;
+        --muted: #64748b;
+        --border: #dfe7f1;
+        --text: #0f172a;
+        --shadow: 0 10px 28px rgba(15, 23, 42, 0.08);
+      }
+
+      * { box-sizing: border-box; }
+      html, body {
+        margin: 0;
+        padding: 0;
+        font-family: Arial, Helvetica, sans-serif;
+        background: linear-gradient(180deg, #eef4ff 0%, #f8fafc 100%);
+        color: var(--text);
+      }
+
+      body { min-height: 100vh; }
+
+      .container {
+        max-width: 1480px;
+        margin: 0 auto;
+        padding: 28px 20px 40px;
+      }
+
+      .topbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 16px;
+        margin-bottom: 24px;
+        flex-wrap: wrap;
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .brand-mark {
+        width: 44px;
+        height: 44px;
+        border-radius: 14px;
+        background: linear-gradient(135deg, var(--primary), #5b8cff);
+        color: white;
+        display: grid;
+        place-items: center;
+        font-weight: 700;
+      }
+
+      .brand h1 {
+        margin: 0;
+        font-size: clamp(1.3rem, 2vw, 2rem);
+      }
+
+      .badge {
+        background: var(--primary-soft);
+        color: var(--primary-dark);
+        border: 1px solid #c9d9ff;
+        padding: 8px 12px;
+        border-radius: 999px;
+        font-size: 0.8rem;
+        font-weight: 700;
+      }
+
+      .stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 18px;
+        margin-bottom: 22px;
+      }
+
+      .card {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        box-shadow: var(--shadow);
+      }
+
+      .stat-box {
+        padding: 18px 18px 16px;
+      }
+
+      .stat-label {
+        color: var(--muted);
+        font-weight: 600;
+        letter-spacing: 0.02em;
+        margin-bottom: 10px;
+      }
+
+      .stat-value {
+        font-size: clamp(1.7rem, 2.2vw, 2.4rem);
+        font-weight: 800;
+      }
+
+      .layout {
+        display: grid;
+        grid-template-columns: 1.45fr 0.75fr;
+        gap: 20px;
+      }
+
+      .panel {
+        padding: 18px;
+      }
+
+      .panel h2 {
+        margin: 0 0 16px;
+        font-size: 1.15rem;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+
+      th, td {
+        padding: 12px 10px;
+        text-align: left;
+        border-bottom: 1px solid var(--border);
+        vertical-align: middle;
+        font-size: 0.94rem;
+      }
+
+      th {
+        color: var(--muted);
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+
+      .status {
+        display: inline-block;
+        border-radius: 999px;
+        padding: 6px 10px;
+        font-size: 0.72rem;
+        font-weight: 700;
+        text-transform: uppercase;
+      }
+
+      .status.approved { background: #dcfce7; color: #166534; }
+      .status.pending { background: #fef3c7; color: #92400e; }
+      .status.sent { background: #dbeafe; color: #1d4ed8; }
+      .status.draft { background: #e2e8f0; color: #334155; }
+      .status.rejected { background: #fee2e2; color: #991b1b; }
+
+      .stack {
+        display: grid;
+        gap: 18px;
+      }
+
+      .form-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 14px;
+      }
+
+      .form-grid .full {
+        grid-column: 1 / -1;
+      }
+
+      label {
+        display: block;
+        margin-bottom: 7px;
+        color: var(--muted);
+        font-size: 0.78rem;
+        font-weight: 600;
+      }
+
+      input, select, textarea, button {
+        width: 100%;
+        border-radius: 12px;
+        border: 1px solid var(--border);
+        padding: 11px 12px;
+        font-size: 0.95rem;
+        background: #fff;
+      }
+
+      input:focus, select:focus, textarea:focus {
+        outline: 2px solid rgba(29, 78, 216, 0.15);
+        border-color: var(--primary);
+      }
+
+      textarea { min-height: 90px; resize: vertical; }
+
+      button {
+        border: none;
+        background: linear-gradient(135deg, var(--primary), #3b82f6);
+        color: white;
+        font-weight: 700;
+        cursor: pointer;
+        transition: transform 0.15s ease, opacity 0.15s ease;
+      }
+
+      button:hover {
+        transform: translateY(-1px);
+        opacity: 0.96;
+      }
+
+      .pricing-list {
+        display: grid;
+        gap: 10px;
+      }
+
+      .pricing-item {
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        background: #f8fafc;
+        padding: 12px;
+      }
+
+      .pricing-item strong {
+        display: block;
+        margin-bottom: 6px;
+      }
+
+      .pricing-actions {
+        display: flex;
+        gap: 8px;
+        margin-top: 8px;
+        align-items: center;
+      }
+
+      .pricing-actions input {
+        flex: 1;
+      }
+
+      .table-actions {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+
+      .table-actions select {
+        min-width: 150px;
+      }
+
+      .muted-note {
+        color: var(--muted);
+        font-size: 0.8rem;
+        margin-top: 8px;
+      }
+
+      @media (max-width: 980px) {
+        .layout { grid-template-columns: 1fr; }
+      }
+
+      @media (max-width: 640px) {
+        .container { padding: 18px 14px 32px; }
+        .form-grid { grid-template-columns: 1fr; }
+        th, td { padding: 10px 8px; }
+        .topbar { align-items: flex-start; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <header class="topbar">
+        <div class="brand">
+          <div class="brand-mark">Q</div>
+          <h1>Quotation Admin Panel</h1>
+        </div>
+        <div class="badge">Live Operations</div>
+      </header>
+
+      <section class="stats" id="stats"></section>
+
+      <div class="layout">
+        <section class="card panel">
+          <h2>Quotation Overview</h2>
+          <div style="overflow-x:auto;">
+            <table>
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Status</th>
+                  <th>Budget</th>
+                  <th>Timeline</th>
+                  <th>Created</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="quotationsBody"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <aside class="stack">
+          <div class="card panel">
+            <h2>Submit Requirement</h2>
+            <form id="requirementForm">
+              <div class="form-grid">
+                <div class="full">
+                  <label>Customer Name</label>
+                  <input name="customerName" required />
+                </div>
+                <div>
+                  <label>Phone</label>
+                  <input name="phone" required />
+                </div>
+                <div>
+                  <label>Email</label>
+                  <input name="email" type="email" required />
+                </div>
+                <div class="full">
+                  <label>Company</label>
+                  <input name="company" placeholder="Optional" />
+                </div>
+                <div class="full">
+                  <label>Service / Requirement</label>
+                  <input name="service" required />
+                </div>
+                <div>
+                  <label>Budget</label>
+                  <input name="budget" type="number" min="0" required />
+                </div>
+                <div>
+                  <label>Timeline Days</label>
+                  <input name="timelineDays" type="number" min="1" value="30" />
+                </div>
+                <div class="full">
+                  <label>Description</label>
+                  <textarea name="description" placeholder="Project overview and notes..."></textarea>
+                </div>
+                <div class="full">
+                  <button type="submit">Submit Requirement</button>
+                </div>
+              </div>
+            </form>
+          </div>
+
+          <div class="card panel">
+            <h2>Pricing Services</h2>
+            <div id="pricingList" class="pricing-list"></div>
+            <div class="muted-note">Update pricing for existing services or add new package rates from here.</div>
+          </div>
+        </aside>
+      </div>
+    </div>
+
+    <script>
+      const statsContainer = document.getElementById('stats');
+      const quotationsBody = document.getElementById('quotationsBody');
+      const pricingList = document.getElementById('pricingList');
+      const requirementForm = document.getElementById('requirementForm');
+
+      function formatCurrency(value) {
+        return '₹' + Number(value || 0).toLocaleString('en-IN');
+      }
+
+      function statusClass(status) {
+        const normalized = String(status || '').toLowerCase();
+        if (normalized.includes('approved')) return 'approved';
+        if (normalized.includes('pending') || normalized.includes('generating') || normalized.includes('editing')) return 'pending';
+        if (normalized.includes('sent')) return 'sent';
+        if (normalized.includes('rejected')) return 'rejected';
+        return 'draft';
+      }
+
+      function renderStats(summary) {
+        const items = [
+          { label: 'Total', value: summary.total ?? 0 },
+          { label: 'Approved', value: summary.approved ?? 0 },
+          { label: 'Pending', value: summary.pending ?? 0 },
+          { label: 'Sent', value: summary.sent ?? 0 },
+          { label: 'Monthly', value: summary.monthly ?? 0 },
+          { label: 'Rejected', value: summary.rejected ?? 0 }
+        ];
+
+        statsContainer.innerHTML = items.map(item => `
+          <div class="card stat-box">
+            <div class="stat-label">${item.label}</div>
+            <div class="stat-value">${item.value}</div>
+          </div>
+        `).join('');
+      }
+
+      function renderQuotations(rows = []) {
+        if (!rows.length) {
+          quotationsBody.innerHTML = `
+            <tr>
+              <td colspan="6" style="text-align:center; color:#64748b; padding:18px;">No quotations found.</td>
+            </tr>
+          `;
+          return;
+        }
+
+        quotationsBody.innerHTML = rows.map(row => `
+          <tr>
+            <td>${row.id ? row.id.slice(0, 8) : '---'}</td>
+            <td><span class="status ${statusClass(row.status)}">${row.status || 'DRAFT'}</span></td>
+            <td>${formatCurrency(row.budget)}</td>
+            <td>${row.timeline || 'N/A'}</td>
+            <td>${row.createdAt ? new Date(row.createdAt).toLocaleDateString() : 'N/A'}</td>
+            <td>
+              <div class="table-actions">
+                <select data-id="${row.id}" class="status-picker">
+                  <option value="DRAFT" ${row.status === 'DRAFT' ? 'selected' : ''}>DRAFT</option>
+                  <option value="PENDING_APPROVAL" ${row.status === 'PENDING_APPROVAL' ? 'selected' : ''}>PENDING_APPROVAL</option>
+                  <option value="APPROVED" ${row.status === 'APPROVED' ? 'selected' : ''}>APPROVED</option>
+                  <option value="SENT" ${row.status === 'SENT' ? 'selected' : ''}>SENT</option>
+                  <option value="REJECTED" ${row.status === 'REJECTED' ? 'selected' : ''}>REJECTED</option>
+                </select>
+              </div>
+            </td>
+          </tr>
+        `).join('');
+
+        document.querySelectorAll('.status-picker').forEach(select => {
+          select.addEventListener('change', async (event) => {
+            const id = event.target.dataset.id;
+            const status = event.target.value;
+            await fetch(`/api/quotations/${id}/status`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ status })
+            });
+            loadDashboard();
+          });
+        });
+      }
+
+      function renderPricing(items = []) {
+        if (!items.length) {
+          pricingList.innerHTML = '<div class="pricing-item">No pricing items found.</div>';
+          return;
+        }
+
+        pricingList.innerHTML = items.map(item => `
+          <div class="pricing-item">
+            <strong>${item.service}</strong>
+            <div>${item.category}</div>
+            <div>${formatCurrency(item.base_price)} / ${item.unit || 'project'}</div>
+            <div class="pricing-actions">
+              <input data-id="${item.id}" data-field="base_price" type="number" value="${Number(item.base_price || 0)}" />
+              <button data-id="${item.id}" class="save-price">Update</button>
+            </div>
+          </div>
+        `).join('');
+
+        document.querySelectorAll('.save-price').forEach(button => {
+          button.addEventListener('click', async () => {
+            const id = button.dataset.id;
+            const row = pricingList.querySelector(`[data-id="${id}"][data-field="base_price"]`);
+            const newPrice = Number(row.value || 0);
+            const item = window.pricingData.find(i => i.id === id) || {};
+
+            await fetch(`/api/pricing/${id}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                category: item.category,
+                service: item.service,
+                description: item.description,
+                base_price: newPrice,
+                unit: item.unit,
+                is_active: item.is_active
+              })
+            });
+            loadPricing();
+          });
+        });
+      }
+
+      async function loadDashboard() {
+        const res = await fetch('/api/dashboard');
+        const data = await res.json();
+        renderStats(data.summary || {});
+        renderQuotations(data.recent || []);
+      }
+
+      async function loadPricing() {
+        const res = await fetch('/api/pricing');
+        const data = await res.json();
+        window.pricingData = Array.isArray(data) ? data : (data.items || []);
+        renderPricing(window.pricingData);
+      }
+
+      requirementForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const formData = new FormData(requirementForm);
+        const payload = Object.fromEntries(formData.entries());
+
+        const response = await fetch('/api/requirements', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        const result = await response.json();
+        alert(result.message || result.error || 'Requirement submitted');
+        requirementForm.reset();
+        loadDashboard();
+      });
+
+      (async function init() {
+        await loadDashboard();
+        await loadPricing();
+      })();
+    </script>
+  </body>
+</html>

@@ -1,0 +1,16 @@
+{
+  "name": "quotation-ai-admin",
+  "version": "1.0.0",
+  "description": "Responsive admin panel for quotation system",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "express": "^4.21.2",
+    "pg": "^8.17.0"
+  }
+}
