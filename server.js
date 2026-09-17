@@ -146,10 +146,30 @@ app.patch('/api/quotations/:id/status', async (req, res) => {
 });
 
 app.post('/api/requirements', async (req, res) => {
+  let client;
   try {
+    client = await pool.connect();
     const payload = normalizeRequirementInput(req.body);
+    const items = payload.items
+      .map((item) => ({
+        description: String(item.name || item.description || '').trim(),
+        quantity: Math.max(1, Number(item.quantity || 1)),
+        unitPrice: Math.max(0, Number(item.unitPrice || item.base_price || 0))
+      }))
+      .filter((item) => item.description);
 
-    const customerResult = await pool.query(
+    if (!items.length) {
+      return res.status(400).json({ error: 'At least one quotation item is required.' });
+    }
+
+    const subtotal = items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
+    const gstPercentage = 18;
+    const gstAmount = subtotal * (gstPercentage / 100);
+    const grandTotal = subtotal + gstAmount;
+
+    await client.query('BEGIN');
+
+    const customerResult = await client.query(
       `INSERT INTO customers (name, business_name, whatsapp_number)
        VALUES ($1, $2, $3)
        RETURNING *;`,
@@ -158,15 +178,35 @@ app.post('/api/requirements', async (req, res) => {
 
     const customer = customerResult.rows[0];
 
-    const quotationNumber = await pool.query('SELECT generate_quotation_number() AS number;');
-    const qResult = await pool.query(
+    const quotationNumber = await client.query('SELECT generate_quotation_number() AS number;');
+    const qResult = await client.query(
       `INSERT INTO quotations (
          quotation_number, customer_id, budget, subtotal, discount, gst_percentage,
          gst_amount, grand_total, timeline, validity_days, status, current_version
-       ) VALUES ($1, $2, $3, $3, 0, 18, 0, $3, $4, $5, 'DRAFT', 1)
+       ) VALUES ($1, $2, $3, $4, 0, $5, $6, $7, $8, $9, 'DRAFT', 1)
        RETURNING *;`,
-      [quotationNumber.rows[0].number, customer.id, payload.budget, payload.timeline_days || 30, payload.validity_days || 15]
+      [
+        quotationNumber.rows[0].number,
+        customer.id,
+        payload.budget,
+        subtotal,
+        gstPercentage,
+        gstAmount,
+        grandTotal,
+        `${payload.timeline_days || 30} days`,
+        payload.validity_days || 15
+      ]
     );
+
+    for (const [index, item] of items.entries()) {
+      await client.query(
+        `INSERT INTO quotation_items (quotation_id, description, quantity, unit_price, total, sort_order)
+         VALUES ($1, $2, $3, $4, $5, $6);`,
+        [qResult.rows[0].id, item.description, item.quantity, item.unitPrice, item.quantity * item.unitPrice, index]
+      );
+    }
+
+    await client.query('COMMIT');
 
     res.status(201).json({
       message: 'Requirement submitted successfully',
@@ -175,7 +215,12 @@ app.post('/api/requirements', async (req, res) => {
       normalized: payload
     });
   } catch (error) {
+    if (client) {
+      await client.query('ROLLBACK').catch(() => {});
+    }
     res.status(200).json({ ok: false, fallback: true, error: error.message });
+  } finally {
+    client?.release();
   }
 });
 

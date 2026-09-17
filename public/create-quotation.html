@@ -1,0 +1,305 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ShivaTechDigital - Create Quotation</title>
+    <style>
+      :root {
+        --bg: #f5f7fb;
+        --panel: #ffffff;
+        --text: #172033;
+        --muted: #6b7280;
+        --border: #e5e7eb;
+        --primary: #111827;
+        --success: #15803d;
+        --danger: #b91c1c;
+      }
+
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font: 15px Arial, sans-serif;
+      }
+
+      .wrap {
+        max-width: 900px;
+        margin: 35px auto;
+        padding: 16px;
+      }
+
+      .head { margin-bottom: 20px; }
+      .brand { font-size: 28px; font-weight: 800; }
+      .muted { color: var(--muted); }
+
+      .card {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 24px;
+        margin: 14px 0;
+        box-shadow: 0 7px 25px rgba(0, 0, 0, 0.04);
+      }
+
+      h2 { font-size: 18px; margin: 0 0 18px; }
+
+      .grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 14px;
+      }
+
+      .full { grid-column: 1 / -1; }
+      .field { display: flex; flex-direction: column; gap: 7px; }
+      label { font-weight: 700; font-size: 13px; }
+
+      input, textarea {
+        width: 100%;
+        padding: 12px;
+        border: 1px solid #d7dce5;
+        border-radius: 9px;
+        font: inherit;
+      }
+
+      input:focus, textarea:focus {
+        outline: 2px solid rgba(37, 99, 235, 0.15);
+        border-color: #2563eb;
+      }
+
+      textarea { min-height: 100px; resize: vertical; }
+
+      .services {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+      }
+
+      .svc {
+        display: grid;
+        grid-template-columns: 20px 1fr 70px;
+        gap: 8px;
+        align-items: center;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 12px;
+        background: #fafafa;
+      }
+
+      .svc input[type="checkbox"] { width: auto; }
+      .price { font-size: 12px; color: var(--muted); }
+      .qty { padding: 7px; }
+
+      .btn {
+        background: var(--primary);
+        color: #fff;
+        border: 0;
+        border-radius: 10px;
+        padding: 13px 20px;
+        font-weight: 800;
+        cursor: pointer;
+      }
+
+      .btn:disabled { opacity: 0.55; cursor: wait; }
+      .status { margin-left: 12px; color: var(--muted); }
+      .ok { color: var(--success); font-weight: 700; }
+      .err { color: var(--danger); font-weight: 700; }
+      .nav-link { color: #2563eb; font-weight: 700; text-decoration: none; }
+      .empty { color: var(--muted); padding: 8px 0; }
+
+      @media (max-width: 650px) {
+        .wrap { margin: 18px auto; }
+        .card { padding: 18px; }
+        .grid, .services { grid-template-columns: 1fr; }
+        .full { grid-column: auto; }
+        .svc { grid-template-columns: 20px 1fr 65px; }
+        .status { display: block; margin: 12px 0 0; }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="wrap">
+      <header class="head">
+        <div class="brand">ShivaTechDigital</div>
+        <div class="muted">Create a professional quotation in one click</div>
+        <a class="nav-link" href="/">Back to dashboard</a>
+      </header>
+
+      <form id="quotationForm">
+        <section class="card">
+          <h2>Customer Details</h2>
+          <div class="grid">
+            <div class="field">
+              <label for="name">Name *</label>
+              <input id="name" name="name" required placeholder="Amit Verma" />
+            </div>
+            <div class="field">
+              <label for="company">Company</label>
+              <input id="company" name="company" placeholder="Verma Enterprises" />
+            </div>
+            <div class="field">
+              <label for="phone">WhatsApp Number *</label>
+              <input id="phone" name="phone" required inputmode="numeric" placeholder="917007294765" />
+            </div>
+            <div class="field">
+              <label for="email">Email</label>
+              <input id="email" name="email" type="email" placeholder="amit@example.com" />
+            </div>
+          </div>
+        </section>
+
+        <section class="card">
+          <h2>Project Details</h2>
+          <div class="grid">
+            <div class="field full">
+              <label for="project">Project Name *</label>
+              <input id="project" name="project" required placeholder="E-Commerce Website Development" />
+            </div>
+            <div class="field full">
+              <label for="description">Project Description *</label>
+              <textarea id="description" name="description" required placeholder="Complete e-commerce website with payment gateway integration"></textarea>
+            </div>
+            <div class="field">
+              <label for="budget">Budget (INR)</label>
+              <input id="budget" name="budget" type="number" min="0" value="100000" />
+            </div>
+            <div class="field">
+              <label for="timeline">Timeline (days)</label>
+              <input id="timeline" name="timeline" type="number" min="1" value="30" />
+            </div>
+            <div class="field">
+              <label for="validity">Validity (days)</label>
+              <input id="validity" name="validity" type="number" min="1" value="15" />
+            </div>
+          </div>
+        </section>
+
+        <section class="card">
+          <h2>Services</h2>
+          <div id="services" class="services">
+            <div class="empty">Loading pricing services...</div>
+          </div>
+          <p class="muted" style="font-size: 12px">Final prices are taken from the pricing master.</p>
+        </section>
+
+        <section class="card">
+          <button class="btn" id="submitButton" type="submit">Create Quotation</button>
+          <span id="status" class="status">Quotation will be saved in the admin dashboard.</span>
+        </section>
+      </form>
+    </main>
+
+    <script>
+      const form = document.getElementById('quotationForm');
+      const servicesContainer = document.getElementById('services');
+      const submitButton = document.getElementById('submitButton');
+      const statusMessage = document.getElementById('status');
+
+      function currency(value) {
+        return 'INR ' + Number(value || 0).toLocaleString('en-IN');
+      }
+
+      function renderServices(items) {
+        if (!items.length) {
+          servicesContainer.innerHTML = '<div class="empty">No pricing services available.</div>';
+          return;
+        }
+
+        servicesContainer.innerHTML = items.map((item) => `
+          <label class="svc">
+            <input type="checkbox" value="${item.id}" data-service="${item.service}" data-price="${Number(item.base_price || 0)}" />
+            <span><b>${item.service}</b><br><span class="price">${currency(item.base_price)} / ${item.unit || 'project'}</span></span>
+            <input class="qty" type="number" min="1" value="1" disabled />
+          </label>
+        `).join('');
+
+        servicesContainer.querySelectorAll('.svc').forEach((service) => {
+          const checkbox = service.querySelector('input[type="checkbox"]');
+          const quantity = service.querySelector('.qty');
+          checkbox.addEventListener('change', () => {
+            quantity.disabled = !checkbox.checked;
+          });
+        });
+      }
+
+      async function loadServices() {
+        const response = await fetch('/api/pricing');
+        const data = await response.json();
+        const items = Array.isArray(data) ? data : (data.items || []);
+        renderServices(items.filter((item) => item.is_active !== false));
+      }
+
+      form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const formData = new FormData(form);
+        const selectedItems = [...servicesContainer.querySelectorAll('.svc')]
+          .filter((service) => service.querySelector('input[type="checkbox"]').checked)
+          .map((service) => ({
+            pricingId: service.querySelector('input[type="checkbox"]').value,
+            name: service.querySelector('input[type="checkbox"]').dataset.service,
+            unitPrice: Number(service.querySelector('input[type="checkbox"]').dataset.price || 0),
+            quantity: Number(service.querySelector('.qty').value || 1)
+          }));
+
+        if (!selectedItems.length) {
+          statusMessage.textContent = 'Select at least one service.';
+          statusMessage.className = 'status err';
+          return;
+        }
+
+        const phone = String(formData.get('phone') || '').replace(/\D/g, '');
+        if (phone.length < 10) {
+          statusMessage.textContent = 'Enter a valid WhatsApp number.';
+          statusMessage.className = 'status err';
+          return;
+        }
+
+        submitButton.disabled = true;
+        statusMessage.textContent = 'Creating quotation...';
+        statusMessage.className = 'status';
+
+        const payload = {
+          customerName: formData.get('name'),
+          phone,
+          email: formData.get('email'),
+          company: formData.get('company'),
+          projectName: formData.get('project'),
+          service: formData.get('project'),
+          description: formData.get('description'),
+          budget: Number(formData.get('budget') || 0),
+          timelineDays: Number(formData.get('timeline') || 30),
+          validityDays: Number(formData.get('validity') || 15),
+          items: selectedItems
+        };
+
+        try {
+          const response = await fetch('/api/requirements', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          const result = await response.json();
+          if (!response.ok || result.fallback || result.ok === false) {
+            throw new Error(result.error || 'Unable to create quotation.');
+          }
+          statusMessage.textContent = 'Quotation created successfully.';
+          statusMessage.className = 'status ok';
+          form.reset();
+          servicesContainer.querySelectorAll('.qty').forEach((quantity) => {
+            quantity.disabled = true;
+          });
+        } catch (error) {
+          statusMessage.textContent = 'Request failed: ' + error.message;
+          statusMessage.className = 'status err';
+        } finally {
+          submitButton.disabled = false;
+        }
+      });
+
+      loadServices().catch(() => {
+        servicesContainer.innerHTML = '<div class="empty">Pricing service list could not be loaded.</div>';
+      });
+    </script>
+  </body>
+</html>
