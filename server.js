@@ -207,6 +207,51 @@ app.patch('/api/quotations/:id/status', async (req, res) => {
   }
 });
 
+app.post('/api/quotations/:id/delivered', async (req, res) => {
+  let client;
+  try {
+    client = await pool.connect();
+    await client.query('BEGIN');
+
+    const existing = await client.query(
+      'SELECT status FROM quotations WHERE id = $1 FOR UPDATE;',
+      [req.params.id]
+    );
+
+    if (!existing.rows.length) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Quotation not found.' });
+    }
+
+    const previousStatus = existing.rows[0].status;
+    if (previousStatus !== 'SENT') {
+      await client.query(
+        'UPDATE quotations SET status = \'SENT\', updated_at = NOW() WHERE id = $1;',
+        [req.params.id]
+      );
+
+      await logQuotationAction(client, {
+        quotationId: req.params.id,
+        action: 'SENT',
+        performedBy: 'N8N',
+        details: {
+          previous_status: previousStatus,
+          delivery: 'CUSTOMER_WHATSAPP',
+          message_id: req.body?.message_id || null
+        }
+      });
+    }
+
+    await client.query('COMMIT');
+    res.json({ ok: true, status: 'SENT', alreadySent: previousStatus === 'SENT' });
+  } catch (error) {
+    if (client) await client.query('ROLLBACK').catch(() => {});
+    res.status(500).json({ ok: false, error: error.message });
+  } finally {
+    client?.release();
+  }
+});
+
 app.get('/api/quotations/:id/history', async (req, res) => {
   try {
     const quotationId = req.params.id;
