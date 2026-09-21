@@ -68,21 +68,15 @@ function normalizeRequirementInput(input = {}) {
     ? input.items
     : [];
 
-  /*
-   * If admin form doesn't provide explicit items,
-   * create an item from the requested service/project.
-   *
-   * IMPORTANT:
-   * Do NOT use customer budget as unitPrice.
-   * Budget is an overall quotation constraint.
-   */
+  /* If the legacy form omits explicit services, preserve one priced item. */
   if (
     !items.length &&
     (project.name || project.description)
   ) {
     items.push({
       name: project.description || project.name,
-      quantity: 1
+      quantity: 1,
+      unitPrice: input.budget || 0
     });
   }
 
