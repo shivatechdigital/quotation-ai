@@ -14,18 +14,34 @@ function buildDashboardSummary(rows = []) {
     const status = String(row?.status || '').toUpperCase();
 
     if (status === 'APPROVED') summary.approved += 1;
-    if (status === 'PENDING_APPROVAL' || status === 'GENERATING' || status === 'EDITING') summary.pending += 1;
+
+    if (
+      status === 'PENDING_APPROVAL' ||
+      status === 'GENERATING' ||
+      status === 'EDITING'
+    ) {
+      summary.pending += 1;
+    }
+
     if (status === 'SENT') summary.sent += 1;
     if (status === 'DRAFT') summary.draft += 1;
     if (status === 'REJECTED') summary.rejected += 1;
 
     const timeline = String(row?.timeline || '').toLowerCase();
-    if (timeline.includes('month') || timeline.includes('monthly')) summary.monthly += 1;
-    else summary.other += 1;
+
+    if (
+      timeline.includes('month') ||
+      timeline.includes('monthly')
+    ) {
+      summary.monthly += 1;
+    } else {
+      summary.other += 1;
+    }
   }
 
   return summary;
 }
+
 
 function normalizeRequirementInput(input = {}) {
   const customer = {
@@ -36,27 +52,57 @@ function normalizeRequirementInput(input = {}) {
   };
 
   const project = {
-    name: String(input.service || input.projectName || '').trim(),
-    description: String(input.description || '').trim()
+    name: String(
+      input.service ||
+      input.projectName ||
+      ''
+    ).trim(),
+
+    description: String(
+      input.description ||
+      ''
+    ).trim()
   };
 
-  const items = Array.isArray(input.items) ? input.items : [];
+  const items = Array.isArray(input.items)
+    ? input.items
+    : [];
 
-  if (!items.length && (project.name || project.description)) {
+  /*
+   * If admin form doesn't provide explicit items,
+   * create an item from the requested service/project.
+   *
+   * IMPORTANT:
+   * Do NOT use customer budget as unitPrice.
+   * Budget is an overall quotation constraint.
+   */
+  if (
+    !items.length &&
+    (project.name || project.description)
+  ) {
     items.push({
       name: project.description || project.name,
-      quantity: 1,
-      unitPrice: input.budget || 0
+      quantity: 1
     });
   }
 
   return {
     customer,
     project,
+
+    // Overall customer budget.
     budget: Number(input.budget || 0),
-    timeline_days: Number(input.timelineDays || 0),
-    validity_days: Number(input.validityDays || 15),
+
+    timeline_days: Number(
+      input.timelineDays || 0
+    ),
+
+    validity_days: Number(
+      input.validityDays || 15
+    ),
+
     items,
+
     source: input.source || 'admin-panel'
   };
 }
