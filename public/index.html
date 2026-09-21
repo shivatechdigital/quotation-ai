@@ -672,11 +672,23 @@
       });
 
       (data.actions || []).forEach((a) => {
+        const details = a.details || {};
+        const actionLabels = {
+          APPROVED: 'Approved',
+          REJECTED: 'Rejected',
+          EDITING: 'Edit requested',
+          SENT: 'Sent to customer',
+          PENDING_APPROVAL: 'Sent for approval'
+        };
         events.push({
           at: a.created_at,
-          action: a.action,
+          action: actionLabels[a.action] || a.action,
           by: a.performed_by,
-          detailsText: a.details && Object.keys(a.details).length ? JSON.stringify(a.details) : ''
+          detailsText: a.action === 'APPROVED' && details.version_number
+            ? `Version ${details.version_number} approved`
+            : a.action === 'EDITING'
+              ? 'Quotation sent back for edits'
+              : ''
         });
       });
 

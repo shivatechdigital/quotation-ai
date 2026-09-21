@@ -166,7 +166,7 @@ app.patch('/api/quotations/:id/status', async (req, res) => {
     await client.query('BEGIN');
 
     const existing = await client.query(
-      'SELECT status FROM quotations WHERE id = $1 FOR UPDATE;',
+      'SELECT status, current_version FROM quotations WHERE id = $1 FOR UPDATE;',
       [req.params.id]
     );
 
@@ -176,6 +176,7 @@ app.patch('/api/quotations/:id/status', async (req, res) => {
     }
 
     const previousStatus = existing.rows[0].status;
+    const currentVersion = Number(existing.rows[0].current_version || 1);
 
     const result = await client.query(
       'UPDATE quotations SET status = $1, updated_at = NOW() WHERE id = $2 RETURNING *;',
@@ -186,7 +187,11 @@ app.patch('/api/quotations/:id/status', async (req, res) => {
       quotationId: req.params.id,
       action: status,
       performedBy: 'ADMIN',
-      details: { previous_status: previousStatus, new_status: status }
+      details: {
+        previous_status: previousStatus,
+        new_status: status,
+        ...(status === 'APPROVED' ? { version_number: currentVersion } : {})
+      }
     });
 
     await client.query('COMMIT');
