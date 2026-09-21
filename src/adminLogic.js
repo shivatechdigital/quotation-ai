@@ -40,13 +40,23 @@ function normalizeRequirementInput(input = {}) {
     description: String(input.description || '').trim()
   };
 
+  const items = Array.isArray(input.items) ? input.items : [];
+
+  if (!items.length && (project.name || project.description)) {
+    items.push({
+      name: project.description || project.name,
+      quantity: 1,
+      unitPrice: input.budget || 0
+    });
+  }
+
   return {
     customer,
     project,
     budget: Number(input.budget || 0),
     timeline_days: Number(input.timelineDays || 0),
     validity_days: Number(input.validityDays || 15),
-    items: Array.isArray(input.items) ? input.items : [],
+    items,
     source: input.source || 'admin-panel'
   };
 }

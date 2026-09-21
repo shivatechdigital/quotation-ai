@@ -511,8 +511,10 @@
 
         const result = await response.json();
         alert(result.message || result.error || 'Requirement submitted');
-        requirementForm.reset();
-        loadDashboard();
+        if (response.ok) {
+          requirementForm.reset();
+          loadDashboard();
+        }
       });
 
       (async function init() {

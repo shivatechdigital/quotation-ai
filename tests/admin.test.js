@@ -37,4 +37,7 @@ test('requirement normalization creates clean payload', () => {
   assert.equal(payload.project.name, 'Landing Page');
   assert.equal(payload.budget, 100000);
   assert.equal(payload.timeline_days, 30);
+  assert.deepEqual(payload.items, [
+    { name: 'Landing Page', quantity: 1, unitPrice: '100000' }
+  ]);
 });
