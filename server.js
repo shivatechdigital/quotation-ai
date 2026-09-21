@@ -2,7 +2,7 @@ const express = require('express');
 const path = require('path');
 const dotenv = require('dotenv');
 const { Pool } = require('pg');
-const { buildDashboardSummary, normalizeRequirementInput } = require('./src/adminLogic');
+const { buildDashboardSummary, normalizeRequirementInput, logQuotationAction } = require('./src/adminLogic');
 
 dotenv.config();
 
@@ -39,20 +39,47 @@ app.get('/api/health', async (_req, res) => {
 app.get('/api/dashboard', async (_req, res) => {
   try {
     const result = await pool.query(`
-      SELECT id, status, timeline, customer_id, created_at, budget, grand_total
-      FROM quotations
-      ORDER BY created_at DESC
+      SELECT
+          q.id,
+          q.quotation_number,
+          q.status,
+          q.timeline,
+          q.customer_id,
+          q.created_at,
+          q.budget,
+          q.grand_total,
+          q.current_version,
+          (
+            SELECT qa.action
+            FROM quotation_actions qa
+            WHERE qa.quotation_id = q.id
+            ORDER BY qa.created_at DESC
+            LIMIT 1
+          ) AS last_action,
+          (
+            SELECT qa.created_at
+            FROM quotation_actions qa
+            WHERE qa.quotation_id = q.id
+            ORDER BY qa.created_at DESC
+            LIMIT 1
+          ) AS last_activity_at
+      FROM quotations q
+      ORDER BY q.created_at DESC
       LIMIT 200
     `);
 
     const summary = buildDashboardSummary(result.rows);
     const recent = result.rows.map((row) => ({
       id: row.id,
+      quotationNumber: row.quotation_number,
       status: row.status,
       timeline: row.timeline || 'Not specified',
       budget: Number(row.budget || 0),
       total: Number(row.grand_total || 0),
-      createdAt: row.created_at
+      version: row.current_version,
+      createdAt: row.created_at,
+      lastAction: row.last_action,
+      lastActivityAt: row.last_activity_at
     }));
 
     res.json({ summary, recent, connected: true });
@@ -127,6 +154,7 @@ app.get('/api/quotations', async (_req, res) => {
 });
 
 app.patch('/api/quotations/:id/status', async (req, res) => {
+  let client;
   try {
     const { status } = req.body;
     const allowed = ['DRAFT', 'GENERATING', 'PENDING_APPROVAL', 'EDITING', 'APPROVED', 'SENT', 'REJECTED', 'TRASH'];
@@ -134,12 +162,85 @@ app.patch('/api/quotations/:id/status', async (req, res) => {
       return res.status(400).json({ error: 'Invalid status.' });
     }
 
-    const result = await pool.query(
+    client = await pool.connect();
+    await client.query('BEGIN');
+
+    const existing = await client.query(
+      'SELECT status FROM quotations WHERE id = $1 FOR UPDATE;',
+      [req.params.id]
+    );
+
+    if (!existing.rows.length) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Quotation not found.' });
+    }
+
+    const previousStatus = existing.rows[0].status;
+
+    const result = await client.query(
       'UPDATE quotations SET status = $1, updated_at = NOW() WHERE id = $2 RETURNING *;',
       [status, req.params.id]
     );
 
+    await logQuotationAction(client, {
+      quotationId: req.params.id,
+      action: status,
+      performedBy: 'ADMIN',
+      details: { previous_status: previousStatus, new_status: status }
+    });
+
+    await client.query('COMMIT');
+
     res.json(result.rows[0]);
+  } catch (error) {
+    if (client) {
+      await client.query('ROLLBACK').catch(() => {});
+    }
+    res.status(200).json({ ok: false, fallback: true, error: error.message });
+  } finally {
+    client?.release();
+  }
+});
+
+app.get('/api/quotations/:id/history', async (req, res) => {
+  try {
+    const quotationId = req.params.id;
+
+    const quotationResult = await pool.query(
+      `SELECT q.*, c.name AS customer_name, c.business_name, c.whatsapp_number
+       FROM quotations q
+       LEFT JOIN customers c ON c.id = q.customer_id
+       WHERE q.id = $1
+       LIMIT 1;`,
+      [quotationId]
+    );
+
+    if (!quotationResult.rows.length) {
+      return res.status(404).json({ error: 'Quotation not found.' });
+    }
+
+    const [actionsResult, versionsResult] = await Promise.all([
+      pool.query(
+        `SELECT id, quotation_id, action, performed_by, details, created_at
+         FROM quotation_actions
+         WHERE quotation_id = $1
+         ORDER BY created_at ASC, id ASC;`,
+        [quotationId]
+      ),
+      pool.query(
+        `SELECT id, quotation_id, version_number, quotation_data, change_description, created_at
+         FROM quotation_versions
+         WHERE quotation_id = $1
+         ORDER BY version_number ASC;`,
+        [quotationId]
+      )
+    ]);
+
+    res.json({
+      quotation: quotationResult.rows[0],
+      actions: actionsResult.rows,
+      versions: versionsResult.rows
+    });
   } catch (error) {
     res.status(200).json({ ok: false, fallback: true, error: error.message });
   }

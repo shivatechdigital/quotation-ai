@@ -68,15 +68,17 @@ function normalizeRequirementInput(input = {}) {
     ? input.items
     : [];
 
-  /* If the legacy form omits explicit services, preserve one priced item. */
+  /*
+   * Legacy form fallback.
+   * Budget is the customer's overall budget, NOT the item's unit price.
+   */
   if (
     !items.length &&
     (project.name || project.description)
   ) {
     items.push({
       name: project.description || project.name,
-      quantity: 1,
-      unitPrice: input.budget || 0
+      quantity: 1
     });
   }
 
@@ -101,7 +103,38 @@ function normalizeRequirementInput(input = {}) {
   };
 }
 
+/**
+ * Insert one row into quotation_actions (matches actual schema:
+ * quotation_id, action, performed_by, details JSONB, created_at).
+ *
+ * @param {import('pg').PoolClient|import('pg').Pool} db
+ * @param {object} entry
+ */
+async function logQuotationAction(db, entry = {}) {
+  const {
+    quotationId,
+    action,
+    performedBy = 'SYSTEM',
+    details = {}
+  } = entry;
+
+  if (!quotationId || !action) {
+    throw new Error('logQuotationAction requires quotationId and action.');
+  }
+
+  const result = await db.query(
+    `INSERT INTO quotation_actions (quotation_id, action, performed_by, details)
+     VALUES ($1, $2, $3, $4::jsonb)
+     RETURNING *;`,
+    [quotationId, action, performedBy, JSON.stringify(details || {})]
+  );
+
+  return result.rows[0];
+}
+
 module.exports = {
   buildDashboardSummary,
-  normalizeRequirementInput
+  normalizeRequirementInput,
+  logQuotationAction
 };
+

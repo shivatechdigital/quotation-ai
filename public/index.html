@@ -232,6 +232,60 @@
 
     .empty { color: var(--muted); padding: 24px; text-align: center; }
 
+    .link-btn {
+      background: none;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 6px 10px;
+      font-size: .75rem;
+      font-weight: 600;
+      color: var(--blue);
+    }
+    .link-btn:hover { background: var(--field); }
+
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(23, 35, 61, .45);
+      display: none;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 40px 16px;
+      overflow-y: auto;
+      z-index: 50;
+    }
+    .modal-overlay.show { display: flex; }
+    .modal-card {
+      background: var(--paper);
+      border-radius: 16px;
+      max-width: 640px;
+      width: 100%;
+      padding: 24px;
+      box-shadow: var(--shadow);
+    }
+    .modal-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+    .modal-close { background: none; border: none; font-size: 1.3rem; line-height: 1; color: var(--muted); }
+    .timeline { list-style: none; margin: 0; padding: 0; }
+    .timeline li {
+      position: relative;
+      padding: 0 0 18px 22px;
+      border-left: 2px solid var(--line);
+    }
+    .timeline li:last-child { border-color: transparent; padding-bottom: 0; }
+    .timeline li::before {
+      content: '';
+      position: absolute;
+      left: -6px;
+      top: 2px;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--blue);
+    }
+    .timeline .t-action { font-weight: 700; font-size: .85rem; }
+    .timeline .t-meta { color: var(--muted); font-size: .75rem; margin-top: 2px; }
+    .timeline .t-details { font-size: .78rem; color: var(--ink); margin-top: 4px; background: var(--field); border-radius: 8px; padding: 6px 8px; }
+
     .toast {
       position: fixed; left: 50%; bottom: 22px; transform: translate(-50%, 20px);
       background: var(--navy); color: #fff; padding: 12px 18px; border-radius: 10px;
@@ -361,7 +415,7 @@
           <div class="panel-head"><div><h2>Recent quotations</h2><div class="panel-note">Update the status while your WhatsApp automation runs</div></div></div>
           <div class="table-scroll">
             <table>
-              <thead><tr><th>Reference</th><th>Status</th><th>Budget</th><th>Timeline</th><th>Created</th><th>Change status</th></tr></thead>
+              <thead><tr><th>Reference</th><th>Status</th><th>Version</th><th>Budget</th><th>Timeline</th><th>Last activity</th><th>Created</th><th>Change status</th><th>History</th></tr></thead>
               <tbody id="quotationsBody"></tbody>
             </table>
           </div>
@@ -402,6 +456,16 @@
   </div>
 
   <div class="toast" id="toast" role="status"></div>
+
+  <div class="modal-overlay" id="historyModal">
+    <div class="modal-card">
+      <div class="modal-head">
+        <h2 id="historyTitle">Quotation history</h2>
+        <button type="button" class="modal-close" id="historyClose" aria-label="Close">&times;</button>
+      </div>
+      <div id="historyBody"><div class="empty">Loading...</div></div>
+    </div>
+  </div>
 
   <script>
     const $ = (id) => document.getElementById(id);
@@ -477,23 +541,27 @@
 
     function renderQuotations(rows = []) {
       if (!rows.length) {
-        quotationsBody.innerHTML = '<tr><td colspan="6" class="empty">No quotations yet. Submit your first requirement below.</td></tr>';
+        quotationsBody.innerHTML = '<tr><td colspan="9" class="empty">No quotations yet. Submit your first requirement below.</td></tr>';
         return;
       }
       const options = ['DRAFT', 'PENDING_APPROVAL', 'APPROVED', 'SENT', 'REJECTED'];
       quotationsBody.innerHTML = rows.map((row) => {
         const id = row.id ? String(row.id) : '';
+        const reference = row.quotationNumber || (id ? id.slice(0, 8).toUpperCase() : '---');
         return `<tr>
-          <td data-label="Reference">${id ? esc(id.slice(0, 8).toUpperCase()) : '---'}</td>
+          <td data-label="Reference">${esc(reference)}</td>
           <td data-label="Status"><span class="badge ${statusClass(row.status)}">${esc(row.status || 'DRAFT')}</span></td>
+          <td data-label="Version">v${esc(row.version || 1)}</td>
           <td data-label="Budget">${formatCurrency(row.budget)}</td>
           <td data-label="Timeline">${esc(row.timeline || 'N/A')}</td>
+          <td data-label="Last activity">${row.lastAction ? esc(row.lastAction) + '<br><span class="t-meta">' + new Date(row.lastActivityAt).toLocaleString('en-IN') + '</span>' : 'No activity yet'}</td>
           <td data-label="Created">${row.createdAt ? new Date(row.createdAt).toLocaleDateString('en-IN') : 'N/A'}</td>
           <td data-label="Change status">
             <select class="status-picker" data-id="${esc(id)}" aria-label="Change status">
               ${options.map((o) => `<option value="${o}" ${row.status === o ? 'selected' : ''}>${o}</option>`).join('')}
             </select>
           </td>
+          <td data-label="History"><button type="button" class="link-btn view-history" data-id="${esc(id)}" data-ref="${esc(reference)}">View</button></td>
         </tr>`;
       }).join('');
     }
@@ -581,6 +649,78 @@
         toast(err.message, true);
       }
       loadDashboard().catch(() => {});
+    });
+
+    /* ---------- History modal ---------- */
+    const historyModal = $('historyModal');
+    const historyBody = $('historyBody');
+    const historyTitle = $('historyTitle');
+
+    function closeHistoryModal() {
+      historyModal.classList.remove('show');
+    }
+
+    function renderHistoryTimeline(data) {
+      const events = [];
+
+      (data.versions || []).forEach((v) => {
+        events.push({
+          at: v.created_at,
+          action: `Version ${v.version_number}`,
+          detailsText: v.change_description || ''
+        });
+      });
+
+      (data.actions || []).forEach((a) => {
+        events.push({
+          at: a.created_at,
+          action: a.action,
+          by: a.performed_by,
+          detailsText: a.details && Object.keys(a.details).length ? JSON.stringify(a.details) : ''
+        });
+      });
+
+      events.sort((a, b) => new Date(a.at) - new Date(b.at));
+
+      if (!events.length) {
+        return '<div class="empty">No history recorded for this quotation yet.</div>';
+      }
+
+      return '<ul class="timeline">' + events.map((ev) => `
+        <li>
+          <div class="t-action">${esc(ev.action)}${ev.by ? ' · ' + esc(ev.by) : ''}</div>
+          <div class="t-meta">${ev.at ? new Date(ev.at).toLocaleString('en-IN') : ''}</div>
+          ${ev.detailsText ? `<div class="t-details">${esc(ev.detailsText)}</div>` : ''}
+        </li>
+      `).join('') + '</ul>';
+    }
+
+    async function openHistoryModal(id, reference) {
+      historyTitle.textContent = `Quotation history · ${reference || id}`;
+      historyBody.innerHTML = '<div class="empty">Loading...</div>';
+      historyModal.classList.add('show');
+      try {
+        const res = await fetch(`/api/quotations/${encodeURIComponent(id)}/history`);
+        const data = await res.json();
+        if (!res.ok || data.error) throw new Error(data.error || 'Unable to load history.');
+        historyBody.innerHTML = renderHistoryTimeline(data);
+      } catch (err) {
+        historyBody.innerHTML = `<div class="empty">${esc(err.message)}</div>`;
+      }
+    }
+
+    quotationsBody.addEventListener('click', (e) => {
+      const button = e.target.closest('.view-history');
+      if (!button) return;
+      openHistoryModal(button.dataset.id, button.dataset.ref);
+    });
+
+    $('historyClose').addEventListener('click', closeHistoryModal);
+    historyModal.addEventListener('click', (e) => {
+      if (e.target === historyModal) closeHistoryModal();
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeHistoryModal();
     });
 
     pricingList.addEventListener('click', async (e) => {
