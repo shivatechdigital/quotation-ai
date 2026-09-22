@@ -189,6 +189,12 @@
     .form-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(300px, 380px); gap: 20px; align-items: start; }
     .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
     .full { grid-column: 1 / -1; }
+    .input-tabs { display: flex; gap: 8px; margin-bottom: 14px; }
+    .tab-btn { width: auto; border: 1px solid var(--line); border-radius: 9px; padding: 9px 14px; background: #f7f9fd; color: var(--muted); font-weight: 700; }
+    .tab-btn.active { border-color: #9eb8ff; background: #edf3ff; color: var(--blue); }
+    .json-panel { display: none; }
+    .json-panel.active { display: block; }
+    .json-editor { min-height: 430px; font-family: Consolas, 'Courier New', monospace; font-size: .8rem; line-height: 1.5; }
     .aside { position: sticky; top: 20px; }
 
     .services { display: grid; gap: 8px; max-height: 340px; overflow-y: auto; padding-right: 2px; overscroll-behavior: contain; }
@@ -422,10 +428,14 @@
         </section>
 
         <section class="section" id="submit">
-          <div class="panel-head"><div><h2>Submit a requirement</h2><div class="panel-note">Select every service that belongs in this quotation.</div></div></div>
+          <div class="panel-head"><div><h2>Submit a requirement</h2><div class="panel-note">Use the normal form or paste an AI-generated JSON requirement.</div></div></div>
+          <div class="input-tabs" role="tablist" aria-label="Requirement input mode">
+            <button type="button" class="tab-btn active" data-input-tab="normal">Normal form</button>
+            <button type="button" class="tab-btn" data-input-tab="json">JSON input</button>
+          </div>
           <form class="form-layout" id="requirementForm">
             <div class="panel">
-              <div class="form-grid">
+              <div class="form-grid normal-fields">
                 <div class="full"><label for="customerName">Customer name</label><input id="customerName" name="customerName" required placeholder="Rahul Sharma" autocomplete="off" /></div>
                 <div><label for="phone">Phone / WhatsApp</label><input id="phone" name="phone" required inputmode="tel" placeholder="917007294764" autocomplete="off" /></div>
                 <div><label for="email">Email</label><input id="email" name="email" type="email" required placeholder="rahul@example.com" autocomplete="off" /></div>
@@ -434,6 +444,11 @@
                 <div><label for="timelineDays">Timeline (days)</label><input id="timelineDays" name="timelineDays" type="number" min="1" inputmode="numeric" value="30" /></div>
                 <div class="full"><label for="service">Requirement title</label><input id="service" name="service" required placeholder="E-commerce website" autocomplete="off" /></div>
                 <div class="full"><label for="description">Project description</label><textarea id="description" name="description" required placeholder="Payment gateway, product catalog, admin panel..."></textarea></div>
+              </div>
+              <div class="json-panel">
+                <label for="jsonInput">Requirement JSON</label>
+                <textarea id="jsonInput" class="json-editor" spellcheck="false" placeholder='Paste JSON here, for example: {"customer":{"name":"Rahul Sharma"},"project":{"name":"E-commerce website"}}'></textarea>
+                <div class="notice">Paste valid JSON and switch to Normal form to fill the fields automatically. Changes in the normal form update this JSON.</div>
               </div>
             </div>
 
@@ -478,8 +493,13 @@
     const submitBtn = $('submitBtn');
     const estimateEl = $('estimate');
     const toastEl = $('toast');
+    const jsonInput = $('jsonInput');
+    const normalFields = document.querySelector('.normal-fields');
+    const jsonPanel = document.querySelector('.json-panel');
+    const inputTabs = [...document.querySelectorAll('[data-input-tab]')];
     const colors = { approved: '#5aa86b', pending: '#f5a524', sent: '#356df3', rejected: '#e86666', draft: '#aebbd0' };
     let pricingData = [];
+    let inputMode = 'normal';
 
     const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     const formatCurrency = (v) => '₹' + Number(v || 0).toLocaleString('en-IN');
@@ -582,6 +602,7 @@
           }).join('')
         : '<div class="empty">No services available.</div>';
       updateEstimate();
+      updateJsonPreview();
     }
 
     function renderPricing(items = []) {
@@ -625,13 +646,76 @@
       estimateEl.textContent = formatCurrency(total);
     }
 
+    function buildRequirementPayload() {
+      const payload = Object.fromEntries(new FormData(requirementForm).entries());
+      payload.phone = String(payload.phone || '').replace(/\D/g, '');
+      payload.projectName = payload.service;
+      payload.items = [...servicesContainer.querySelectorAll('.service-option')]
+        .filter((row) => row.querySelector('.svc-check').checked)
+        .map((row) => {
+          const check = row.querySelector('.svc-check');
+          return {
+            pricingId: check.value,
+            name: check.dataset.service,
+            unitPrice: Number(check.dataset.price || 0),
+            quantity: Math.max(1, Number(row.querySelector('.qty').value || 1))
+          };
+        });
+      payload.budget = Number(payload.budget || 0);
+      payload.timelineDays = Number(payload.timelineDays || 30);
+      return payload;
+    }
+
+    function updateJsonPreview() {
+      if (inputMode === 'normal') jsonInput.value = JSON.stringify(buildRequirementPayload(), null, 2);
+    }
+
+    function applyJsonToForm() {
+      let data;
+      try { data = JSON.parse(jsonInput.value || '{}'); } catch { throw new Error('Invalid JSON. Please check commas, quotes, and brackets.'); }
+      const customer = data.customer || {};
+      const project = data.project || {};
+      const setValue = (name, value) => {
+        const field = requirementForm.elements[name];
+        if (field && value !== undefined && value !== null) field.value = value;
+      };
+      setValue('customerName', data.customerName || customer.name);
+      setValue('phone', data.phone || customer.phone);
+      setValue('email', data.email || customer.email);
+      setValue('company', data.company || customer.company);
+      setValue('service', data.service || data.projectName || project.name);
+      setValue('description', data.description || project.description);
+      setValue('budget', data.budget);
+      setValue('timelineDays', data.timelineDays || data.timeline_days);
+      servicesContainer.querySelectorAll('.service-option').forEach((row) => {
+        const check = row.querySelector('.svc-check');
+        const item = (data.items || []).find((candidate) => String(candidate.name || candidate.description || '').trim().toLowerCase() === check.dataset.service.toLowerCase());
+        check.checked = Boolean(item);
+        row.querySelector('.qty').disabled = !item;
+        if (item) row.querySelector('.qty').value = Math.max(1, Number(item.quantity || 1));
+      });
+      updateEstimate();
+    }
+
+    inputTabs.forEach((tab) => tab.addEventListener('click', () => {
+      if (tab.dataset.inputTab === 'normal') {
+        try { applyJsonToForm(); } catch (error) { formStatus.textContent = error.message; formStatus.className = 'notice err'; return; }
+      } else updateJsonPreview();
+      inputMode = tab.dataset.inputTab;
+      inputTabs.forEach((item) => item.classList.toggle('active', item === tab));
+      normalFields.style.display = inputMode === 'normal' ? 'grid' : 'none';
+      jsonPanel.classList.toggle('active', inputMode === 'json');
+    }));
+    normalFields.addEventListener('input', updateJsonPreview);
+
     servicesContainer.addEventListener('change', (e) => {
       if (e.target.classList.contains('svc-check')) {
         e.target.closest('.service-option').querySelector('.qty').disabled = !e.target.checked;
       }
       updateEstimate();
+      updateJsonPreview();
     });
-    servicesContainer.addEventListener('input', (e) => { if (e.target.classList.contains('qty')) updateEstimate(); });
+    servicesContainer.addEventListener('input', (e) => { if (e.target.classList.contains('qty')) { updateEstimate(); updateJsonPreview(); } });
 
     quotationsBody.addEventListener('change', async (e) => {
       const select = e.target.closest('.status-picker');
@@ -762,28 +846,16 @@
       e.preventDefault();
       const setStatus = (text, cls = '') => { formStatus.textContent = text; formStatus.className = 'notice ' + cls; };
 
-      const items = [...servicesContainer.querySelectorAll('.service-option')]
-        .filter((row) => row.querySelector('.svc-check').checked)
-        .map((row) => {
-          const check = row.querySelector('.svc-check');
-          return {
-            pricingId: check.value,
-            name: check.dataset.service,
-            unitPrice: Number(check.dataset.price || 0),
-            quantity: Math.max(1, Number(row.querySelector('.qty').value || 1))
-          };
-        });
+      if (inputMode === 'json') {
+        try { applyJsonToForm(); } catch (error) { return setStatus(error.message, 'err'); }
+      }
+
+      const payload = buildRequirementPayload();
+      const items = payload.items;
 
       if (!items.length) return setStatus('Select at least one service.', 'err');
 
-      const payload = Object.fromEntries(new FormData(requirementForm).entries());
-      payload.phone = String(payload.phone || '').replace(/\D/g, '');
       if (payload.phone.length < 10) return setStatus('Enter a valid WhatsApp number.', 'err');
-
-      payload.projectName = payload.service;
-      payload.items = items;
-      payload.budget = Number(payload.budget || 0);
-      payload.timelineDays = Number(payload.timelineDays || 30);
 
       submitBtn.disabled = true;
       setStatus('Creating quotation...');
@@ -799,6 +871,11 @@
         requirementForm.reset();
         servicesContainer.querySelectorAll('.qty').forEach((q) => { q.disabled = true; q.value = 1; });
         updateEstimate();
+        inputMode = 'normal';
+        inputTabs.forEach((item) => item.classList.toggle('active', item.dataset.inputTab === 'normal'));
+        normalFields.style.display = 'grid';
+        jsonPanel.classList.remove('active');
+        updateJsonPreview();
         loadDashboard().catch(() => {});
       } catch (err) {
         setStatus('Request failed: ' + err.message, 'err');
