@@ -199,7 +199,7 @@
 
     .services { display: grid; gap: 8px; max-height: 340px; overflow-y: auto; padding-right: 2px; overscroll-behavior: contain; }
     .service-option {
-      display: grid; grid-template-columns: 20px minmax(0, 1fr) 62px; gap: 10px; align-items: center;
+      display: grid; grid-template-columns: 20px minmax(0, 1fr) 82px 62px; gap: 10px; align-items: center;
       border: 1px solid var(--line); border-radius: 10px; padding: 10px; background: var(--field);
       margin: 0; color: var(--ink); cursor: pointer;
     }
@@ -209,6 +209,7 @@
     .service-name { font-size: .86rem; font-weight: 700; overflow-wrap: anywhere; }
     .service-price { color: var(--muted); font-size: .74rem; font-weight: 500; }
     .qty { padding: 7px 6px; text-align: center; }
+    .override-price { padding: 7px 6px; text-align: right; }
     .qty:disabled { opacity: .45; }
 
     .estimate { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin: 18px 0 14px; padding-top: 16px; border-top: 1px solid var(--line); }
@@ -597,6 +598,7 @@
                 <span class="service-name">${esc(i.service)}</span>
                 <span class="service-price">${formatCurrency(price)} / ${esc(i.unit || 'project')}${i.category ? ' · ' + esc(i.category) : ''}</span>
               </span>
+              <input type="number" class="override-price" min="0" step="1" value="${price}" disabled aria-label="Quotation price for ${esc(i.service)}" />
               <input type="number" class="qty" min="1" value="1" disabled aria-label="Quantity" />
             </label>`;
           }).join('')
@@ -641,7 +643,7 @@
       servicesContainer.querySelectorAll('.service-option').forEach((row) => {
         const check = row.querySelector('.svc-check');
         if (!check || !check.checked) return;
-        total += Number(check.dataset.price || 0) * Math.max(1, Number(row.querySelector('.qty').value || 1));
+        total += Math.max(0, Number(row.querySelector('.override-price').value || 0)) * Math.max(1, Number(row.querySelector('.qty').value || 1));
       });
       estimateEl.textContent = formatCurrency(total);
     }
@@ -657,7 +659,7 @@
           return {
             pricingId: check.value,
             name: check.dataset.service,
-            unitPrice: Number(check.dataset.price || 0),
+            unitPrice: Math.max(0, Number(row.querySelector('.override-price').value || 0)),
             quantity: Math.max(1, Number(row.querySelector('.qty').value || 1))
           };
         });
@@ -691,8 +693,12 @@
         const check = row.querySelector('.svc-check');
         const item = (data.items || []).find((candidate) => String(candidate.name || candidate.description || '').trim().toLowerCase() === check.dataset.service.toLowerCase());
         check.checked = Boolean(item);
+        row.querySelector('.override-price').disabled = !item;
         row.querySelector('.qty').disabled = !item;
-        if (item) row.querySelector('.qty').value = Math.max(1, Number(item.quantity || 1));
+        if (item) {
+          row.querySelector('.override-price').value = Math.max(0, Number(item.unitPrice ?? item.unit_price ?? check.dataset.price ?? 0));
+          row.querySelector('.qty').value = Math.max(1, Number(item.quantity || 1));
+        }
       });
       updateEstimate();
     }
@@ -710,12 +716,14 @@
 
     servicesContainer.addEventListener('change', (e) => {
       if (e.target.classList.contains('svc-check')) {
-        e.target.closest('.service-option').querySelector('.qty').disabled = !e.target.checked;
+        const row = e.target.closest('.service-option');
+        row.querySelector('.override-price').disabled = !e.target.checked;
+        row.querySelector('.qty').disabled = !e.target.checked;
       }
       updateEstimate();
       updateJsonPreview();
     });
-    servicesContainer.addEventListener('input', (e) => { if (e.target.classList.contains('qty')) { updateEstimate(); updateJsonPreview(); } });
+    servicesContainer.addEventListener('input', (e) => { if (e.target.classList.contains('qty') || e.target.classList.contains('override-price')) { updateEstimate(); updateJsonPreview(); } });
 
     quotationsBody.addEventListener('change', async (e) => {
       const select = e.target.closest('.status-picker');
@@ -869,7 +877,12 @@
         if (!res.ok || result.fallback || result.ok === false) throw new Error(result.error || 'Unable to create quotation.');
         setStatus('Quotation created successfully.', 'ok');
         requirementForm.reset();
-        servicesContainer.querySelectorAll('.qty').forEach((q) => { q.disabled = true; q.value = 1; });
+        servicesContainer.querySelectorAll('.service-option').forEach((row) => {
+          row.querySelector('.override-price').disabled = true;
+          row.querySelector('.override-price').value = row.querySelector('.svc-check').dataset.price || 0;
+          row.querySelector('.qty').disabled = true;
+          row.querySelector('.qty').value = 1;
+        });
         updateEstimate();
         inputMode = 'normal';
         inputTabs.forEach((item) => item.classList.toggle('active', item.dataset.inputTab === 'normal'));
