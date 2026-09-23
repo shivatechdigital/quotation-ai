@@ -1123,3 +1123,10 @@ To github.com:shivatechdigital/quotation-ai.git
 prashant@naukarivm:~/quotation-ai$ client_loop: send disconnect: Connection reset
 
 C:\Users\raoprash>
+
+
+Truncate command:
+docker exec quotation-postgres psql   -U quotation_user   -d quotation_db   -c "TRUNCATE TABLE quotations, customers RESTART IDENTITY CASCADE;"
+
+Open SQL command:
+docker exec -it quotation-postgres psql -U quotation_user -d quotation_db
